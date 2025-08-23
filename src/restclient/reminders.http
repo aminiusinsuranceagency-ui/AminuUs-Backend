@@ -1,0 +1,88 @@
+### Create Reminder
+POST http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468
+Content-Type: application/json
+
+{
+  "ReminderType": "Call",
+  "Title": "jkdasfghgdfsg",
+  "Description": "Call about renewal",
+  "ReminderDate": "2025-09-15",
+  "Priority": "High"
+}
+
+### Get All Reminders
+GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468?PageSize=10&PageNumber=1
+
+### Get Reminder by ID
+GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/62AF9656-E29E-4447-915B-68B58DDBF6C2
+
+### Update Reminder
+PUT http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/62AF9656-E29E-4447-915B-68B58DDBF6C2
+Content-Type: application/json
+
+{
+  "Title": "Updated Title",
+  "Priority": "Low"
+}
+
+### Delete Reminder
+DELETE http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/62AF9656-E29E-4447-915B-68B58DDBF6C2
+
+### Complete Reminder
+POST http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/62AF9656-E29E-4447-915B-68B58DDBF6C2/complete
+Content-Type: application/json
+
+{
+  "notes": "Task done"
+}
+
+### Get Today Birthday Reminders
+GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/birthdays
+
+### Get Policy Expiry Reminders
+GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/policy-expiries?daysAhead=15
+
+### Get Reminder Settings
+GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/settings
+
+### Update Reminder Settings
+PUT http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/settings
+Content-Type: application/json
+
+{
+  "ReminderType": "Birthday",
+  "IsEnabled": true,
+  "DaysBefore": 3,
+  "TimeOfDay": "09:00:00",
+  "RepeatDaily": false
+}
+
+### Get Reminder Statistics
+GET http://localhost:3000/api/reminders/5C24F39E-7759-4ECD-AAC7-6787A1F46ECD/statistics
+
+### Validate Phone
+GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/validate-phone?phoneNumber=0712345678&countryCode=+254
+GET http://localhost:3000/api/reminders/<agentId>/statistics
+
+
+### Get Reminders by Type
+GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/type/call
+Content-Type: application/json
+
+###
+
+### Get Reminders by Type (meeting)
+GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/type/meeting
+Content-Type: application/json
+
+###
+
+### Get Reminders by Status (pending)
+GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/status/pending
+Content-Type: application/json
+
+###
+
+### Get Reminders by Status (completed)
+GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/status/completed
+Content-Type: application/json
