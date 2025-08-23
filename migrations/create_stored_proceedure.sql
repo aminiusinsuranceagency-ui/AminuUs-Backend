@@ -8278,34 +8278,34 @@ BEGIN
 END;
 GO
 
--- Get Search Suggestions
-CREATE OR ALTER PROCEDURE sp_GetSearchSuggestions
-    @AgentId UNIQUEIDENTIFIER,
-    @SearchTerm NVARCHAR(500),
-    @MaxResults INT = 10
-AS
-BEGIN
-    SET NOCOUNT ON;
+-- -- Get Search Suggestions
+-- CREATE OR ALTER PROCEDURE sp_GetSearchSuggestions
+--     @AgentId UNIQUEIDENTIFIER,
+--     @SearchTerm NVARCHAR(500),
+--     @MaxResults INT = 10
+-- AS
+-- BEGIN
+--     SET NOCOUNT ON;
     
-    SELECT TOP (@MaxResults) DISTINCT Suggestion
-    FROM (
-        SELECT FirstName AS Suggestion FROM Clients WHERE AgentId = @AgentId AND FirstName LIKE @SearchTerm + '%'
-        UNION
-        SELECT Surname FROM Clients WHERE AgentId = @AgentId AND Surname LIKE @SearchTerm + '%'
-        UNION
-        SELECT Email FROM Clients WHERE AgentId = @AgentId AND Email LIKE @SearchTerm + '%'
-        UNION
-        SELECT InsuranceType FROM Clients WHERE AgentId = @AgentId AND InsuranceType LIKE @SearchTerm + '%'
-        UNION
-        SELECT PolicyName FROM PolicyCatalog WHERE AgentId = @AgentId AND PolicyName LIKE @SearchTerm + '%'
-        UNION
-        SELECT PolicyType FROM PolicyCatalog WHERE AgentId = @AgentId AND PolicyType LIKE @SearchTerm + '%'
-        UNION
-        SELECT CompanyName FROM PolicyCatalog WHERE AgentId = @AgentId AND CompanyName LIKE @SearchTerm + '%'
-    ) AS Suggestions
-    ORDER BY Suggestion;
-END;
-GO
+--     SELECT TOP (@MaxResults) DISTINCT Suggestion
+--     FROM (
+--         SELECT FirstName AS Suggestion FROM Clients WHERE AgentId = @AgentId AND FirstName LIKE @SearchTerm + '%'
+--         UNION
+--         SELECT Surname FROM Clients WHERE AgentId = @AgentId AND Surname LIKE @SearchTerm + '%'
+--         UNION
+--         SELECT Email FROM Clients WHERE AgentId = @AgentId AND Email LIKE @SearchTerm + '%'
+--         UNION
+--         SELECT InsuranceType FROM Clients WHERE AgentId = @AgentId AND InsuranceType LIKE @SearchTerm + '%'
+--         UNION
+--         SELECT PolicyName FROM PolicyCatalog WHERE AgentId = @AgentId AND PolicyName LIKE @SearchTerm + '%'
+--         UNION
+--         SELECT PolicyType FROM PolicyCatalog WHERE AgentId = @AgentId AND PolicyType LIKE @SearchTerm + '%'
+--         UNION
+--         SELECT CompanyName FROM PolicyCatalog WHERE AgentId = @AgentId AND CompanyName LIKE @SearchTerm + '%'
+--     ) AS Suggestions
+--     ORDER BY Suggestion;
+-- END;
+-- GO
 
 -- Save Search History
 CREATE OR ALTER PROCEDURE sp_SaveSearchHistory
