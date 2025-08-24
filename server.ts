@@ -2,15 +2,15 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import agentRoutes from './src/routes/agent.routes';
-import analyticsRoutes from './src/routes/analytics.routes';
-import appointmentRoutes from './src/routes/appointment';
-import clientRoutes from './src/routes/clients.routes';
-import policyRoutes from './src/routes/policy.routes';
-import reminderRoutes from './src/routes/reminder.routes';
-import notesRoutes from './src/routes/notes.routes';
-import searchRoutes from './src/routes/search.routes';
-import utilityRoutes from './src/routes/utility.routes';
-import autocompleteRoutes from './src/routes/autocomplete.routes';
+// import analyticsRoutes from './src/routes/analytics.routes';
+// import appointmentRoutes from './src/routes/appointment';
+// import clientRoutes from './src/routes/clients.routes';
+// import policyRoutes from './src/routes/policy.routes';
+// import reminderRoutes from './src/routes/reminder.routes';
+// import notesRoutes from './src/routes/notes.routes';
+// import searchRoutes from './src/routes/search.routes';
+// import utilityRoutes from './src/routes/utility.routes';
+// import autocompleteRoutes from './src/routes/autocomplete.routes';
 import "./src/cronjobs/cronjobs"; 
 dotenv.config();
 
@@ -33,17 +33,17 @@ app.use(express.urlencoded({ extended: true }));
 
 /* ------------------  Routes ------------------ */
 app.use('/api', agentRoutes);
-app.use('/api/analytics', analyticsRoutes);
-app.use('/api/appointments', appointmentRoutes);
-app.use('/api/clients', clientRoutes);
-app.use('/api/policies',policyRoutes);
-app.use('/api/reminders', reminderRoutes);
-app.use('/api/notes', notesRoutes);
-app.use('/api/search', searchRoutes);
-app.use('/api/utility', utilityRoutes);
-app.use('/api/autocomplete', autocompleteRoutes);
+// app.use('/api/analytics', analyticsRoutes);
+// app.use('/api/appointments', appointmentRoutes);
+// app.use('/api/clients', clientRoutes);
+// app.use('/api/policies',policyRoutes);
+// app.use('/api/reminders', reminderRoutes);
+// app.use('/api/notes', notesRoutes);
+// app.use('/api/search', searchRoutes);
+// app.use('/api/utility', utilityRoutes);
+// app.use('/api/autocomplete', autocompleteRoutes);
 
-// ✅ Root Route
+// // ✅ Root Route
 app.get('/', (_req: Request, res: Response) => {
   res.send('🚀 Welcome to the API!');
 });
