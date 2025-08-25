@@ -86,12 +86,33 @@ public async loginAgent(email: string, password: string): Promise<LoginResponse>
 
   const row = result.rows[0];
 
-  // ✅ Normalize Postgres response → TypeScript interface (PascalCase)
+  // 🔄 Convert snake_case → PascalCase
+  const agentProfile: AgentProfile = {
+  AgentId: row.agent_profile.agent_id,
+  FirstName: row.agent_profile.first_name,
+  LastName: row.agent_profile.last_name,
+  Email: row.agent_profile.email,
+  Phone: row.agent_profile.phone,
+  PasswordHash: "",   // 🔐 hide actual hash
+  Avatar: row.agent_profile.avatar,
+  CreatedDate: row.agent_profile.created_date,
+  ModifiedDate: row.agent_profile.modified_date,
+  IsActive: row.agent_profile.is_active,
+  DarkMode: row.agent_profile.dark_mode,
+  EmailNotifications: row.agent_profile.email_notifications,
+  SmsNotifications: row.agent_profile.sms_notifications,
+  WhatsappNotifications: row.agent_profile.whatsapp_notifications,
+  PushNotifications: row.agent_profile.push_notifications,
+  SoundEnabled: row.agent_profile.sound_enabled,
+};
+
+
+  // ✅ Normalize Postgres response → TypeScript interface
   const response: LoginResponse = {
-    Success: row.success === 1,          // int → boolean
+    Success: row.success === 1,   // int → boolean
     Message: row.message,
     AgentId: row.agent_id,
-    AgentProfile: row.agent_profile,     // JSON from sp_login_agent
+    AgentProfile: agentProfile,
     // 🚨 Removed stored_password_hash for security
   };
 
