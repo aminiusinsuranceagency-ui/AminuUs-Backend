@@ -73,9 +73,9 @@ export class AgentService {
     return result.rows.length ? result.rows[0] : null;
   }
 
-  /**
-   * Login agent
-   */
+/**
+ * Login agent
+ */
 public async loginAgent(email: string, password: string): Promise<LoginResponse> {
   const pool = await poolPromise;
   const result = await pool.query('SELECT * FROM sp_login_agent($1,$2)', [email, password]);
@@ -86,15 +86,16 @@ public async loginAgent(email: string, password: string): Promise<LoginResponse>
 
   const row = result.rows[0];
 
-  // Normalize Postgres response → TypeScript interface
+  // ✅ Normalize Postgres response → TypeScript interface (PascalCase)
   const response: LoginResponse = {
-    Success: row.success === 1,   // int → boolean
+    Success: row.success === 1,          // int → boolean
     Message: row.message,
     AgentId: row.agent_id,
-    AgentProfile: row.agent_profile // JSON from sp_login_agent
+    AgentProfile: row.agent_profile,     // JSON from sp_login_agent
+    // 🚨 Removed stored_password_hash for security
   };
 
-  // Optional: send login email
+  // ✅ Optional: send login email
   if (response.Success && response.AgentId) {
     const agentResult = await pool.query(
       'SELECT first_name, email FROM agent WHERE agent_id=$1',
