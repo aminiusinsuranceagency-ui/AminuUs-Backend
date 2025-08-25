@@ -41,8 +41,8 @@ POST http://localhost:3000/api/agent/login
 Content-Type: application/json
 
 {
-  "email": "john@example.com",
-  "password": "plaintextpassword"
+  "email": "ivanolumosi@gmail.com",
+  "password": "securepass123"
 }
 
 ### 6. Register Agent

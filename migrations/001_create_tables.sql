@@ -5,7 +5,7 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-
+go
 -- Agent Table
 CREATE TABLE agent (
     agent_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -19,6 +19,23 @@ CREATE TABLE agent (
     modified_date TIMESTAMPTZ DEFAULT NOW(),
     is_active BOOLEAN DEFAULT TRUE
 );
+CREATE TABLE agent_settings (
+    setting_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id UUID NOT NULL,
+    dark_mode BOOLEAN DEFAULT FALSE,
+    email_notifications BOOLEAN DEFAULT TRUE,
+    sms_notifications BOOLEAN DEFAULT TRUE,
+    whatsapp_notifications BOOLEAN DEFAULT TRUE,
+    push_notifications BOOLEAN DEFAULT TRUE,
+    sound_enabled BOOLEAN DEFAULT TRUE,
+    created_date TIMESTAMPTZ DEFAULT NOW(),
+    modified_date TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT fk_agent FOREIGN KEY (agent_id) 
+        REFERENCES agent(agent_id) 
+        ON DELETE CASCADE
+);
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 
 -- ============================================
 -- Client Management Tables

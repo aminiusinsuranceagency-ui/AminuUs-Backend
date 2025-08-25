@@ -76,34 +76,48 @@ export class AgentService {
   /**
    * Login agent
    */
-  public async loginAgent(email: string, password: string): Promise<LoginResponse> {
-    const pool = await poolPromise;
-    const result = await pool.query('SELECT * FROM sp_login_agent($1,$2)', [email, password]);
+public async loginAgent(email: string, password: string): Promise<LoginResponse> {
+  const pool = await poolPromise;
+  const result = await pool.query('SELECT * FROM sp_login_agent($1,$2)', [email, password]);
 
-    const response: LoginResponse = result.rows[0];
-
-    if (response?.Success && response.AgentId) {
-      const agentResult = await pool.query(
-        'SELECT "FirstName","Email" FROM "Agent" WHERE "AgentId"=$1',
-        [response.AgentId]
-      );
-      const agent = agentResult.rows[0];
-
-      try {
-        const loginTime = new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' });
-        await emailService.sendMail(
-          agent.email,
-          'Login Notification - Aminius App',
-          `Hi ${agent.firstname},\n\nYou logged in on ${loginTime}. If this wasn't you, please secure your account immediately.`,
-          `<h3>Login Notification</h3><p>Hi ${agent.firstname},</p><p>You logged in on <strong>${loginTime}</strong>.</p>`
-        );
-      } catch (err) {
-        console.error('❌ Failed to send login email:', err);
-      }
-    }
-
-    return response;
+  if (result.rows.length === 0) {
+    return { Success: false, Message: "Invalid email or password" };
   }
+
+  const row = result.rows[0];
+
+  // Normalize Postgres response → TypeScript interface
+  const response: LoginResponse = {
+    Success: row.success === 1,   // int → boolean
+    Message: row.message,
+    AgentId: row.agent_id,
+    AgentProfile: row.agent_profile // JSON from sp_login_agent
+  };
+
+  // Optional: send login email
+  if (response.Success && response.AgentId) {
+    const agentResult = await pool.query(
+      'SELECT first_name, email FROM agent WHERE agent_id=$1',
+      [response.AgentId]
+    );
+    const agent = agentResult.rows[0];
+
+    try {
+      const loginTime = new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' });
+      await emailService.sendMail(
+        agent.email,
+        'Login Notification - Aminius App',
+        `Hi ${agent.first_name},\n\nYou logged in on ${loginTime}. If this wasn't you, please secure your account immediately.`,
+        `<h3>Login Notification</h3><p>Hi ${agent.first_name},</p><p>You logged in on <strong>${loginTime}</strong>.</p>`
+      );
+    } catch (err) {
+      console.error('❌ Failed to send login email:', err);
+    }
+  }
+
+  return response;
+}
+
 
   /**
    * Register agent

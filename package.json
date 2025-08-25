@@ -2,7 +2,7 @@
   "name": "backend",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "dist/server.js",
   "scripts": {
     "migrate": "node scripts/run-migrations.js",
     "start": "npm run migrate && node dist/server.js",

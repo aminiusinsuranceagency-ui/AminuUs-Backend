@@ -656,6 +656,18 @@ END;
 GO
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 -- ============================================
 -- Updated Stored Procedures for Policy Management
 -- Matching the updated table schema with foreign keys
