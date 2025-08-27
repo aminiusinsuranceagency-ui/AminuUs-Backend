@@ -301,20 +301,33 @@ public async loginAgent(email: string, password: string): Promise<LoginResponse>
   /**
    * Get navbar badge counts
    */
-  public async getNavbarBadgeCounts(agentId: string): Promise<{ clients: number; policies: number; reminders: number; appointments: number }> {
+// Updated method in agent.service.ts
+public async getNavbarBadgeCounts(agentId: string): Promise<{ 
+    clients: number; 
+    policies: number; 
+    reminders: number; 
+    appointments: number 
+}> {
     const pool = await poolPromise;
-    const result = await pool.query('SELECT * FROM get_navbar_badge_counts($1)', [agentId]);
+    
+    try {
+        const result = await pool.query('SELECT * FROM get_navbar_badge_counts($1)', [agentId]);
 
-    if (!result.rows.length) {
-      return { clients: 0, policies: 0, reminders: 0, appointments: 0 };
+        if (!result.rows.length) {
+            return { clients: 0, policies: 0, reminders: 0, appointments: 0 };
+        }
+
+        const row = result.rows[0];
+        return {
+            clients: row.clientscount ?? 0,
+            policies: row.policiescount ?? 0,
+            reminders: row.reminderscount ?? 0,
+            appointments: row.appointmentscount ?? 0
+        };
+    } catch (error) {
+        console.error('Error getting navbar badge counts:', error);
+        // Return default values in case of error
+        return { clients: 0, policies: 0, reminders: 0, appointments: 0 };
     }
-
-    const row = result.rows[0];
-    return {
-      clients: row.clientscount ?? 0,
-      policies: row.policiescount ?? 0,
-      reminders: row.reminderscount ?? 0,
-      appointments: row.appointmentscount ?? 0
-    };
-  }
+}
 }
