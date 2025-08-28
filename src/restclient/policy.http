@@ -3,7 +3,7 @@
 @baseUrl = http://localhost:3000/api/policies
 
 ### Sample IDs (replace with actual IDs from your database)
-@agentId = 730080DD-742C-4934-8974-30AC3495E468
+@agentId = 7b407c2d-3145-40b0-8c47-1d6f62351b2c
 @clientId = 5ABFFC14-164C-493C-AD4C-64F10C1649D5
 @policyId = 75EC16A0-D26A-4D53-8BFE-C5FDBD1E54D4
 @policyCatalogId = 6C30C39C-8FBF-4FE6-8410-FEBAC45C2938

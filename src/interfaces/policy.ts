@@ -1,5 +1,3 @@
-// interfaces/policy.ts
-
 // Base Entity Interfaces
 export interface PolicyCatalog {
     policyId: string;
@@ -129,8 +127,8 @@ export interface PolicyHistory {
     notes?: string;
     createdDate: Date;
     modifiedDate?: Date;
-    companyId: string;
-    companyName: string;
+    companyId?: string;
+    companyName?: string;
     typeId?: string;
     typeName?: string;
     policyDurationDays: number;
@@ -236,7 +234,7 @@ export interface PolicyRenewalRequest {
 }
 
 export interface BulkUpdatePolicyStatusRequest {
-    policyIds: string[]; // Will be converted to comma-separated string
+    policyIds: string[];
     newStatus: string;
 }
 
@@ -316,7 +314,7 @@ export interface CreateInsuranceCompanyRequest {
 }
 
 export interface UpdateInsuranceCompanyRequest {
-    companyId: string;
+    companyId?: string;
     companyName?: string;
     isActive?: boolean;
 }
@@ -326,7 +324,7 @@ export interface CreatePolicyTypeRequest {
 }
 
 export interface UpdatePolicyTypeRequest {
-    typeId: string;
+    typeId?: string;
     typeName?: string;
     isActive?: boolean;
 }
@@ -395,15 +393,15 @@ export interface CleanupResponse {
     totalRecordsDeleted?: number;
 }
 
-// Legacy interfaces for backward compatibility
+// Legacy interfaces
 export interface PolicyCompanyRelationship {
     policyId: string;
     companyId: string;
-    companyName: string;
+    companyName?: string;
 }
 
 export interface PolicyValidationRequest {
-    policyData: any; // Define based on your validation needs
+    policyData: any;
 }
 
 export interface PolicyValidationResponse {
