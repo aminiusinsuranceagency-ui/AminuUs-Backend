@@ -217,28 +217,35 @@ export class ClientService {
         };
     }
 
-    /** Create new client */
-    public async createClient(clientData: CreateClientRequest): Promise<ClientResponse> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_create_client($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
-            [
-                clientData.AgentId,
-                clientData.FirstName,
-                clientData.Surname,
-                clientData.LastName,
-                clientData.PhoneNumber,
-                clientData.Email,
-                clientData.Address,
-                clientData.NationalId,
-                clientData.DateOfBirth,
-                clientData.IsClient ?? false,
-                clientData.InsuranceType,
-                clientData.Notes
-            ]
-        );
-        return { Success: true, Message: 'Client created', ClientId: result.rows[0].client_id };
-    }
+  /** Create new client */
+public async createClient(clientData: CreateClientRequest): Promise<ClientResponse> {
+    const pool = await poolPromise;
+    const result = await pool.query(
+  'SELECT * FROM sp_create_client($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
+  [
+    clientData.AgentId,
+    clientData.FirstName,
+    clientData.Surname,
+    clientData.LastName,
+    clientData.PhoneNumber,
+    clientData.Email,
+    clientData.Address,
+    clientData.NationalId,
+    clientData.DateOfBirth,
+    clientData.InsuranceType,     
+    clientData.IsClient ?? false, 
+    clientData.Notes              
+  ]
+);
+
+
+    const row = result.rows[0];
+    return { 
+        Success: row.success === 1,   // map from postgres integer (1/0)
+        Message: row.message,
+        ClientId: row.client_id 
+    };
+}
 
     /** Update client */
     public async updateClient(clientData: UpdateClientRequest): Promise<ClientResponse> {
