@@ -141,6 +141,8 @@ export interface PolicyCatalogFilterRequest {
     companyId?: string;
     categoryId?: string;
     typeId?: string;
+    companyName?: string;   // ✅ Added
+    searchTerm?: string;    // ✅ Added
     isActive?: boolean;
 }
 
@@ -151,6 +153,7 @@ export interface CreatePolicyCatalogRequest {
     notes?: string;
     categoryId?: string;
     typeId?: string;
+    isActive?: boolean;     
 }
 
 export interface UpdatePolicyCatalogRequest {
@@ -161,6 +164,7 @@ export interface UpdatePolicyCatalogRequest {
     categoryId?: string;
     typeId?: string;
     isActive?: boolean;
+    agentId?: string;     
 }
 
 export interface UpsertPolicyCatalogRequest {
@@ -171,7 +175,14 @@ export interface UpsertPolicyCatalogRequest {
     notes?: string;
     categoryId?: string;
     typeId?: string;
+    isActive?: boolean;     
 }
+
+export interface DeletePolicyCatalogRequest {
+    policyCatalogId: string;
+    agentId: string;
+}
+
 
 // Request Interfaces for Client Policies
 export interface ClientPolicyFilterRequest {
@@ -314,7 +325,7 @@ export interface CreateInsuranceCompanyRequest {
 }
 
 export interface UpdateInsuranceCompanyRequest {
-    companyId?: string;
+    companyId: string; // Made required to match service usage
     companyName?: string;
     isActive?: boolean;
 }
@@ -324,7 +335,7 @@ export interface CreatePolicyTypeRequest {
 }
 
 export interface UpdatePolicyTypeRequest {
-    typeId?: string;
+    typeId: string; // Made required to match service usage
     typeName?: string;
     isActive?: boolean;
 }
@@ -393,13 +404,7 @@ export interface CleanupResponse {
     totalRecordsDeleted?: number;
 }
 
-// Legacy interfaces
-export interface PolicyCompanyRelationship {
-    policyId: string;
-    companyId: string;
-    companyName?: string;
-}
-
+// Validation interfaces
 export interface PolicyValidationRequest {
     policyData: any;
 }
@@ -408,4 +413,67 @@ export interface PolicyValidationResponse {
     isValid: boolean;
     errors: string[];
     warnings?: string[];
+}
+
+// Soft delete response interface
+export interface SoftDeleteResponse {
+    success: number;
+    message: string;
+}
+
+// Database validation response interface
+export interface DatabaseValidationResponse {
+    isValid: boolean;
+    validationErrors: string;
+}
+
+// Legacy interfaces for backward compatibility
+export interface PolicyCompanyRelationship {
+    policyId: string;
+    companyId: string;
+    companyName?: string;
+}
+
+// Additional interfaces needed by service but missing
+export interface ClientWithPolicies {
+    clientId: string;
+    agentId: string;
+    firstName: string;
+    surname: string;
+    lastName: string;
+    fullName: string;
+    phoneNumber: string;
+    email: string;
+    address: string;
+    nationalId: string;
+    dateOfBirth: Date;
+    isClient: boolean;
+    insuranceType: string;
+    clientNotes?: string;
+    clientCreatedDate: Date;
+    clientModifiedDate: Date;
+    clientIsActive: boolean;
+
+    policyId?: string;
+    policyName?: string;
+    status?: string;
+    startDate?: Date;
+    endDate?: Date;
+    policyNotes?: string;
+    policyCreatedDate?: Date;
+    policyModifiedDate?: Date;
+    policyIsActive?: boolean;
+    policyCatalogId?: string;
+    catalogPolicyName?: string;
+    typeId?: string;
+    typeName?: string;
+    companyId?: string;
+    companyName?: string;
+    daysUntilExpiry?: number;
+}
+
+export interface ClientWithPoliciesFilterRequest {
+    agentId?: string;
+    clientId?: string;
+    includeInactive?: boolean;
 }

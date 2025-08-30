@@ -11,8 +11,8 @@ CREATE OR REPLACE FUNCTION sp_create_client(
     p_address VARCHAR(500),
     p_national_id VARCHAR(20),
     p_date_of_birth DATE,
-    p_is_client BOOLEAN DEFAULT FALSE,
     p_insurance_type VARCHAR(50),
+    p_is_client BOOLEAN DEFAULT FALSE,
     p_notes TEXT DEFAULT NULL
 )
 RETURNS TABLE(
