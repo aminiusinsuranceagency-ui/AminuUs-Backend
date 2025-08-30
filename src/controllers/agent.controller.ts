@@ -14,6 +14,15 @@ export const upsertAgentProfile = async (req: Request, res: Response) => {
       passwordHash,
       avatar
     } = req.body;
+
+    // Basic validation
+    if (!firstName || !lastName || !email || !phone || !passwordHash) {
+      return res.status(400).json({ 
+        error: "Missing required fields",
+        Message: "First name, last name, email, phone, and password are required" 
+      });
+    }
+
     const newAgentId = await agentService.upsertAgent(
       agentId || null,
       firstName,
@@ -23,10 +32,24 @@ export const upsertAgentProfile = async (req: Request, res: Response) => {
       passwordHash,
       avatar
     );
+
     res.json({ agentId: newAgentId });
-  } catch (err) {
-    console.error("❌ Error upserting agent:", err);
-    res.status(500).json({ error: "Failed to upsert agent" });
+    
+  } catch (err: any) {
+    console.error("Error upserting agent:", err);
+    
+    // Return structured error response that matches your frontend expectations
+    if (err.message === 'Email already exists') {
+      return res.status(409).json({ 
+        error: "Email already exists",
+        Message: "An account with this email address already exists" 
+      });
+    }
+    
+    res.status(500).json({ 
+      error: "Failed to upsert agent",
+      Message: err.message || "An unexpected error occurred while updating the profile"
+    });
   }
 };
 
@@ -76,11 +99,35 @@ export const loginAgent = async (req: Request, res: Response) => {
 
 export const registerAgent = async (req: Request, res: Response) => {
   try {
+    // Basic validation
+    const { FirstName, LastName, Email, Phone, PasswordHash } = req.body;
+    
+    if (!FirstName || !LastName || !Email || !Phone || !PasswordHash) {
+      return res.status(400).json({
+        Success: false,
+        Message: "Missing required fields: FirstName, LastName, Email, Phone, and PasswordHash are required",
+        AgentId: undefined
+      });
+    }
+
     const result = await agentService.registerAgent(req.body);
-    res.json(result);
-  } catch (err) {
-    console.error("❌ Error registering agent:", err);
-    res.status(500).json({ error: "Registration failed" });
+    
+    if (result.Success) {
+      res.status(201).json(result); // 201 Created for successful registration
+    } else {
+      // Return 409 for conflicts (like email exists), 400 for other failures
+      const statusCode = result.Message.includes('already exists') ? 409 : 400;
+      res.status(statusCode).json(result);
+    }
+    
+  } catch (err: any) {
+    console.error("Error registering agent:", err);
+    
+    res.status(500).json({
+      Success: false,
+      Message: err.message || "Registration failed due to server error",
+      AgentId: undefined
+    });
   }
 };
 

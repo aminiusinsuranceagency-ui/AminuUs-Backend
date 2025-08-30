@@ -19,22 +19,59 @@ export class AgentService {
   /**
    * Create or update agent profile
    */
-  public async upsertAgent(
-    agentId: string | null,
-    firstName: string,
-    lastName: string,
-    email: string,
-    phone: string,
-    passwordHash: string,
-    avatar?: string
-  ): Promise<string> {
+public async upsertAgent(
+  agentId: string | null,
+  firstName: string,
+  lastName: string,
+  email: string,
+  phone: string,
+  passwordHash: string,
+  avatar?: string
+): Promise<string> {
+  try {
     const pool = await poolPromise;
-    const result = await pool.query(
-      'SELECT sp_upsert_agent($1,$2,$3,$4,$5,$6,$7) AS agent_id',
-      [firstName, lastName, email, phone, passwordHash, avatar || null, agentId]
-    );
+    
+    // Explicitly cast all parameters to avoid function overload conflicts
+    const result = await pool.query(`
+      SELECT sp_upsert_agent(
+        $1::VARCHAR(50),
+        $2::VARCHAR(50), 
+        $3::VARCHAR(100),
+        $4::VARCHAR(20),
+        $5::VARCHAR(200),
+        $6::TEXT,
+        $7::UUID
+      ) AS agent_id
+    `, [
+      firstName, 
+      lastName, 
+      email, 
+      phone, 
+      passwordHash, 
+      avatar || null, 
+      agentId
+    ]);
+    
+    console.log('Agent upsert successful:', result.rows[0].agent_id);
     return result.rows[0].agent_id;
+    
+  } catch (error: any) {
+    console.error('Error upserting agent:', error);
+    
+    // Handle specific PostgreSQL errors
+    if (error.code === '23505') {
+      throw new Error('Email already exists');
+    } else if (error.code === '42725') {
+      throw new Error('Database function error - please contact support');
+    } else if (error.code === '23502') {
+      throw new Error('Required field is missing');
+    } else if (error.code === '23514') {
+      throw new Error('Invalid data format');
+    } else {
+      throw new Error(`Failed to upsert agent: ${error.message || 'Unknown database error'}`);
+    }
   }
+}
 
   /**
    * Get agent profile with settings
@@ -144,45 +181,114 @@ public async loginAgent(email: string, password: string): Promise<LoginResponse>
   /**
    * Register agent
    */
-  public async registerAgent(registerData: RegisterRequest): Promise<RegisterResponse> {
+public async registerAgent(registerData: RegisterRequest): Promise<RegisterResponse> {
+  try {
     const pool = await poolPromise;
-    const result = await pool.query(
-      'SELECT * FROM sp_register_agent($1,$2,$3,$4,$5,$6)',
-      [
-        registerData.FirstName,
-        registerData.LastName,
-        registerData.Email,
-        registerData.Phone,
-        registerData.PasswordHash,
-        registerData.Avatar || null
-      ]
-    );
+    
+    // Call the stored procedure with explicit type casting
+    const result = await pool.query(`
+      SELECT * FROM sp_register_agent(
+        $1::VARCHAR(50),
+        $2::VARCHAR(50),
+        $3::VARCHAR(100),
+        $4::VARCHAR(20),
+        $5::VARCHAR(200),
+        $6::TEXT
+      )
+    `, [
+      registerData.FirstName,
+      registerData.LastName,
+      registerData.Email,
+      registerData.Phone,
+      registerData.PasswordHash,
+      registerData.Avatar || null
+    ]);
 
-    const response: RegisterResponse = result.rows[0];
+    if (result.rows.length === 0) {
+      return {
+        Success: false,
+        Message: 'Registration failed - no response from database',
+        AgentId: undefined
+      };
+    }
 
-    if (response?.Success && response.AgentId) {
-      const agentResult = await pool.query(
-        'SELECT "FirstName","Email" FROM "Agent" WHERE "AgentId"=$1',
-        [response.AgentId]
-      );
-      const agent = agentResult.rows[0];
+    const row = result.rows[0];
+    
+    // Convert the stored procedure response to match your interface
+    const response: RegisterResponse = {
+      Success: row.success === 1,
+      Message: row.message || 'Registration processed',
+      AgentId: row.agent_id || undefined
+    };
 
+    console.log('Registration response:', { 
+      Success: response.Success, 
+      Message: response.Message, 
+      AgentId: response.AgentId 
+    });
+
+    // Send welcome email if registration was successful
+    if (response.Success && response.AgentId) {
       try {
         const signUpTime = new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' });
         await emailService.sendMail(
-          agent.email,
+          registerData.Email,
           'Welcome to Aminius App!',
-          `Hi ${agent.firstname},\n\nThanks for signing up on ${signUpTime}! We're glad to have you.`,
-          `<h1>Welcome, ${agent.firstname}!</h1><p>You signed up on <strong>${signUpTime}</strong>. 🚀</p>`
+          `Hi ${registerData.FirstName},\n\nThanks for signing up on ${signUpTime}! We're glad to have you.`,
+          `<h1>Welcome, ${registerData.FirstName}!</h1><p>You signed up on <strong>${signUpTime}</strong>.</p>`
         );
-      } catch (err) {
-        console.error(`❌ Failed to send welcome email:`, err);
+        console.log('Welcome email sent to:', registerData.Email);
+      } catch (emailError: any) {
+        console.error('Failed to send welcome email:', emailError.message || 'Email service error');
+        // Don't fail the registration if email fails
       }
     }
 
     return response;
+    
+  } catch (error: any) {
+    console.error('Error registering agent:', error);
+    
+    // Handle specific database errors with proper error codes
+    if (error.code === '23505') {
+      return {
+        Success: false,
+        Message: 'Email already exists',
+        AgentId: undefined
+      };
+    } else if (error.code === '42804') {
+      return {
+        Success: false,
+        Message: 'Database configuration error - please contact support',
+        AgentId: undefined
+      };
+    } else if (error.code === '23502') {
+      return {
+        Success: false,
+        Message: 'Required field is missing',
+        AgentId: undefined
+      };
+    } else if (error.code === '23514') {
+      return {
+        Success: false,
+        Message: 'Invalid data format provided',
+        AgentId: undefined
+      };
+    } else if (error.code === '42725') {
+      return {
+        Success: false,
+        Message: 'Database function configuration error',
+        AgentId: undefined
+      };
+    } else {
+      return {
+        Success: false,
+        Message: `Registration failed: ${error.message || 'Unknown database error'}`,
+        AgentId: undefined
+      };
+    }
   }
-
+}
   /**
    * Change password
    */
