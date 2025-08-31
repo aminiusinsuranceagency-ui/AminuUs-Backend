@@ -135,13 +135,12 @@ export class PolicyService {
             };
         }
     }
-
-    /**
-     * Get clients with policies - Fixed to return PolicyResponse format
-     */
- public async getClientsWithPolicies(
+/**
+ * Get clients with policies - Fixed to return array directly to match frontend expectations
+ */
+public async getClientsWithPolicies(
   request: ClientWithPoliciesFilterRequest
-): Promise<PolicyResponse<ClientWithPolicies[]>> {
+): Promise<ClientWithPolicies[]> {
   try {
     const pool = await poolPromise;
     const result = await pool.query(
@@ -151,22 +150,16 @@ export class PolicyService {
 
     const data = this.mapClientsWithPolicies(result.rows);
 
-    return {
-      success: true,
-      data,
-      message: "Clients with policies retrieved successfully"
-    };
+    // Return the array directly instead of wrapping in PolicyResponse
+    return data;
   } catch (error) {
     console.error("Error in getClientsWithPolicies:", error);
-    return {
-      success: false,
-      data: [],
-      message: error instanceof Error ? error.message : "Failed to get clients with policies"
-    };
+    // Throw the error to be handled by error middleware/handler
+    throw new Error(error instanceof Error ? error.message : "Failed to get clients with policies");
   }
 }
 
-    private mapClientsWithPolicies(rows: any[]): ClientWithPolicies[] {
+private mapClientsWithPolicies(rows: any[]): ClientWithPolicies[] {
   const clientMap: Map<string, ClientWithPolicies> = new Map();
 
   rows.forEach(row => {
@@ -189,7 +182,7 @@ export class PolicyService {
         clientCreatedDate: row.client_created_date,
         clientModifiedDate: row.client_modified_date,
         clientIsActive: row.client_is_active,
-        policies: []   // ✅ now valid
+        policies: []
       });
     }
 
@@ -217,7 +210,6 @@ export class PolicyService {
 
   return Array.from(clientMap.values());
 }
-
 
 
     /**

@@ -98,17 +98,21 @@ export const getClientsWithPolicies = async (req: Request, res: Response): Promi
             includeInactive: includeInactive === 'true'
         };
         
-        const result = await policyService.getClientsWithPolicies(request);
+        // Since the service now returns ClientWithPolicies[] directly, no need to check result.success
+        const data = await policyService.getClientsWithPolicies(request);
         
-        // Return direct array instead of PolicyResponse wrapper
-        if (result.success) {
-            res.status(200).json(result.data); // Direct array
-        } else {
-            res.status(400).json([]);  // Empty array on failure
-        }
+        // Return the array directly
+        res.status(200).json(data);
+        
     } catch (error) {
         console.error('Error in getClientsWithPolicies controller:', error);
-        res.status(500).json([]); // Empty array on error
+        
+        // Return proper error response with meaningful message
+        const errorMessage = error instanceof Error ? error.message : 'Failed to get clients with policies';
+        res.status(500).json({ 
+            error: errorMessage,
+            message: 'Internal server error'
+        });
     }
 };
 
