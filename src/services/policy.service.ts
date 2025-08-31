@@ -48,7 +48,8 @@ import {
     RenewalResponse,
     CleanupResponse,
     PolicyValidationRequest,
-    PolicyValidationResponse
+    PolicyValidationResponse,
+    ClientPolicyLite
 } from '../interfaces/policy';
 
 // Updated interface to match frontend expectations
@@ -87,6 +88,7 @@ export interface ClientWithPolicies {
     companyId?: string;
     companyName?: string;
     daysUntilExpiry?: number;
+    policies: ClientPolicyLite[];
 }
 
 export interface ClientWithPoliciesFilterRequest {
@@ -137,35 +139,86 @@ export class PolicyService {
     /**
      * Get clients with policies - Fixed to return PolicyResponse format
      */
-    public async getClientsWithPolicies(
-        request: ClientWithPoliciesFilterRequest
-    ): Promise<PolicyResponse<ClientWithPolicies[]>> {
-        try {
-            const pool = await poolPromise;
-            const result = await pool.query(
-                `SELECT * FROM sp_get_clients_with_policies($1,$2,$3)`,
-                [
-                    request.agentId || null,
-                    request.clientId || null,
-                    request.includeInactive || false
-                ]
-            );
-            
-            const data = result.rows.map(this.mapClientWithPoliciesFromDb);
-            return {
-                success: true,
-                data,
-                message: 'Clients with policies retrieved successfully'
-            };
-        } catch (error) {
-            console.error('Error in getClientsWithPolicies:', error);
-            return {
-                success: false,
-                data: [],
-                message: error instanceof Error ? error.message : 'Failed to get clients with policies'
-            };
-        }
+ public async getClientsWithPolicies(
+  request: ClientWithPoliciesFilterRequest
+): Promise<PolicyResponse<ClientWithPolicies[]>> {
+  try {
+    const pool = await poolPromise;
+    const result = await pool.query(
+      `SELECT * FROM sp_get_clients_with_policies($1,$2,$3)`,
+      [request.agentId || null, request.clientId || null, request.includeInactive || false]
+    );
+
+    const data = this.mapClientsWithPolicies(result.rows);
+
+    return {
+      success: true,
+      data,
+      message: "Clients with policies retrieved successfully"
+    };
+  } catch (error) {
+    console.error("Error in getClientsWithPolicies:", error);
+    return {
+      success: false,
+      data: [],
+      message: error instanceof Error ? error.message : "Failed to get clients with policies"
+    };
+  }
+}
+
+    private mapClientsWithPolicies(rows: any[]): ClientWithPolicies[] {
+  const clientMap: Map<string, ClientWithPolicies> = new Map();
+
+  rows.forEach(row => {
+    if (!clientMap.has(row.client_id)) {
+      clientMap.set(row.client_id, {
+        clientId: row.client_id,
+        agentId: row.agent_id,
+        firstName: row.first_name,
+        surname: row.surname,
+        lastName: row.last_name,
+        fullName: row.full_name,
+        phoneNumber: row.phone_number,
+        email: row.email,
+        address: row.address,
+        nationalId: row.national_id,
+        dateOfBirth: row.date_of_birth,
+        isClient: row.is_client,
+        insuranceType: row.insurance_type,
+        clientNotes: row.client_notes,
+        clientCreatedDate: row.client_created_date,
+        clientModifiedDate: row.client_modified_date,
+        clientIsActive: row.client_is_active,
+        policies: []   // ✅ now valid
+      });
     }
+
+    if (row.policy_id) {
+      clientMap.get(row.client_id)!.policies.push({
+        policyId: row.policy_id,
+        policyName: row.policy_name,
+        status: row.status,
+        startDate: row.start_date,
+        endDate: row.end_date,
+        notes: row.policy_notes,
+        createdDate: row.policy_created_date,
+        modifiedDate: row.policy_modified_date,
+        isActive: row.policy_is_active,
+        policyCatalogId: row.policy_catalog_id,
+        catalogPolicyName: row.catalog_policy_name,
+        typeId: row.type_id,
+        typeName: row.type_name,
+        companyId: row.company_id,
+        companyName: row.company_name,
+        daysUntilExpiry: row.days_until_expiry
+      });
+    }
+  });
+
+  return Array.from(clientMap.values());
+}
+
+
 
     /**
      * Create policy catalog item - Fixed to return PolicyResponse format
@@ -1726,45 +1779,45 @@ export class PolicyService {
         };
     }
 
-    private mapClientWithPoliciesFromDb(row: any): ClientWithPolicies {
-        return {
-            clientId: row.client_id,
-            agentId: row.agent_id,
-            firstName: row.first_name,
-            surname: row.surname,
-            lastName: row.last_name,
-            fullName: row.full_name,
-            phoneNumber: row.phone_number,
-            email: row.email,
-            address: row.address,
-            nationalId: row.national_id,
-            dateOfBirth: new Date(row.date_of_birth),
-            isClient: row.is_client,
-            insuranceType: row.insurance_type,
-            clientNotes: row.client_notes,
-            clientCreatedDate: new Date(row.client_created_date),
-            clientModifiedDate: new Date(row.client_modified_date),
-            clientIsActive: row.client_is_active,
+    // private mapClientWithPoliciesFromDb(row: any): ClientWithPolicies {
+    //     return {
+    //         clientId: row.client_id,
+    //         agentId: row.agent_id,
+    //         firstName: row.first_name,
+    //         surname: row.surname,
+    //         lastName: row.last_name,
+    //         fullName: row.full_name,
+    //         phoneNumber: row.phone_number,
+    //         email: row.email,
+    //         address: row.address,
+    //         nationalId: row.national_id,
+    //         dateOfBirth: new Date(row.date_of_birth),
+    //         isClient: row.is_client,
+    //         insuranceType: row.insurance_type,
+    //         clientNotes: row.client_notes,
+    //         clientCreatedDate: new Date(row.client_created_date),
+    //         clientModifiedDate: new Date(row.client_modified_date),
+    //         clientIsActive: row.client_is_active,
             
-            // Policy fields (may be null if no policies)
-            policyId: row.policy_id,
-            policyName: row.policy_name,
-            status: row.status,
-            startDate: row.start_date ? new Date(row.start_date) : undefined,
-            endDate: row.end_date ? new Date(row.end_date) : undefined,
-            policyNotes: row.policy_notes,
-            policyCreatedDate: row.policy_created_date ? new Date(row.policy_created_date) : undefined,
-            policyModifiedDate: row.policy_modified_date ? new Date(row.policy_modified_date) : undefined,
-            policyIsActive: row.policy_is_active,
-            policyCatalogId: row.policy_catalog_id,
-            catalogPolicyName: row.catalog_policy_name,
-            typeId: row.type_id,
-            typeName: row.type_name,
-            companyId: row.company_id,
-            companyName: row.company_name,
-            daysUntilExpiry: row.days_until_expiry
-        };
-    }
+    //         // Policy fields (may be null if no policies)
+    //         policyId: row.policy_id,
+    //         policyName: row.policy_name,
+    //         status: row.status,
+    //         startDate: row.start_date ? new Date(row.start_date) : undefined,
+    //         endDate: row.end_date ? new Date(row.end_date) : undefined,
+    //         policyNotes: row.policy_notes,
+    //         policyCreatedDate: row.policy_created_date ? new Date(row.policy_created_date) : undefined,
+    //         policyModifiedDate: row.policy_modified_date ? new Date(row.policy_modified_date) : undefined,
+    //         policyIsActive: row.policy_is_active,
+    //         policyCatalogId: row.policy_catalog_id,
+    //         catalogPolicyName: row.catalog_policy_name,
+    //         typeId: row.type_id,
+    //         typeName: row.type_name,
+    //         companyId: row.company_id,
+    //         companyName: row.company_name,
+    //         daysUntilExpiry: row.days_until_expiry
+    //     };
+    // }
 
     private mapPolicyTemplateFromDb(row: any): PolicyTemplate {
         return {

@@ -88,22 +88,27 @@ export const getPolicyCatalog = async (req: Request, res: Response) => {
     }
 };
 
-export const getClientsWithPolicies = async (req: Request, res: Response) => {
+export const getClientsWithPolicies = async (req: Request, res: Response): Promise<void> => {
     try {
+        const { agentId, clientId, includeInactive } = req.query;
+        
         const request: ClientWithPoliciesFilterRequest = {
-            agentId: req.query.agentId as string | undefined,
-            clientId: req.query.clientId as string | undefined,
-            includeInactive: req.query.includeInactive === "true",
+            agentId: agentId as string,
+            clientId: clientId as string,
+            includeInactive: includeInactive === 'true'
         };
+        
         const result = await policyService.getClientsWithPolicies(request);
-        res.json(result);
+        
+        // Return direct array instead of PolicyResponse wrapper
+        if (result.success) {
+            res.status(200).json(result.data); // Direct array
+        } else {
+            res.status(400).json([]);  // Empty array on failure
+        }
     } catch (error) {
-        console.error("Error getting clients with policies:", error);
-        res.status(500).json({ 
-            success: false,
-            error: "Failed to fetch clients with policies",
-            message: error instanceof Error ? error.message : "Unknown error"
-        });
+        console.error('Error in getClientsWithPolicies controller:', error);
+        res.status(500).json([]); // Empty array on error
     }
 };
 
