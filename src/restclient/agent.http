@@ -50,10 +50,10 @@ POST http://localhost:3000/api/agent/register
 Content-Type: application/json
 
 {
-  "FirstName": "test",
-  "LastName": "Test",
-  "Email": "test@gmail.com",
-  "Phone": "0748706970",
+  "FirstName": "test1",
+  "LastName": "Test1",
+  "Email": "test1@gmail.com",
+  "Phone": "0746706970",
   "PasswordHash": "SecurePass1234",
   "Avatar": "https://example.com/avatar2.jpg"
 }

@@ -12,8 +12,19 @@ function normalizeKeys(obj: any): any {
   return obj;
 }
 
+// ✅ List of routes to skip normalization
+const excludedPaths: string[] = [
+  "/api/clients",
+  "/api"
+];
+
 export function normalizeKeysMiddleware(req: Request, _res: Response, next: NextFunction) {
-  const r = req as any; // 👈 allow mutation of body/query/params safely
+  // 👉 Skip normalization if request path starts with any excluded path
+  if (excludedPaths.some((path) => req.path.startsWith(path))) {
+    return next();
+  }
+
+  const r = req as any; // allow mutation of body/query/params safely
 
   if (r.body && Object.keys(r.body).length > 0) {
     r.body = normalizeKeys(r.body);
