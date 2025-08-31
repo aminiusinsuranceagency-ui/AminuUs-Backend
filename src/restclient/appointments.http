@@ -9,8 +9,8 @@ Content-Type: application/json
   "title": "Policy Renewal Meeting",
   "description": "Discuss renewal options",
   "appointmentDate": "2025-08-10",
-  "startTime": "10:00:00",
-  "endTime": "11:00:00",
+  "startTime": "12:00:00",
+  "endTime": "13:00:00",
   "location": "Office",
   "type": "Meeting",
   "status": "Scheduled",
@@ -30,7 +30,7 @@ Content-Type: application/json
 }
 
 ### 3. Get Appointment By ID
-GET {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c/22222222-2222-2222-2222-222222222222
+GET {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c/d58963f5-ef90-4154-ae3e-372d9b7f4994
 
 ### 4. Delete Appointment
 DELETE {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/22222222-2222-2222-2222-222222222222
