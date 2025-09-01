@@ -1,88 +1,233 @@
+
+// =============================================
+// UPDATED HTTP REST CLIENT - reminders.http
+// =============================================
+
+### Variables
+@baseUrl = http://localhost:3000/api/reminders
+@agentId = 7b407c2d-3145-40b0-8c47-1d6f62351b2c
+@testReminderId = e5f94403-0ced-418a-b873-4f1b9b956d5a
+
 ### Create Reminder
-POST http://localhost:3000/api/reminders/7b407c2d-3145-40b0-8c47-1d6f62351b2c
+POST {{baseUrl}}
 Content-Type: application/json
+x-agent-id: {{agentId}}
 
 {
-  "ReminderType": "Call",
-  "Title": "jkdasfghgdfsg",
-  "Description": "Call about renewal",
-  "ReminderDate": "2025-09-15",
-  "Priority": "High"
+    "ReminderType": "Call",
+    "Title": "Follow up call with client",
+    "Description": "Call about policy clarification",
+    "ReminderDate": "2025-09-15",
+    "ReminderTime": "15:30:00",
+    "Priority": "High",
+    "ClientName": "John Doe",
+    "EnableSMS": true,
+    "EnableWhatsApp": false,
+    "EnablePushNotification": true,
+    "AdvanceNotice": "1 day",
+    "CustomMessage": "Remember to call John about his policy",
+    "AutoSend": false,
+    "Notes": "Important client call"
 }
 
 ### Get All Reminders
-GET http://localhost:3000/api/reminders/7b407c2d-3145-40b0-8c47-1d6f62351b2c?PageSize=10&PageNumber=1
+GET {{baseUrl}}?PageSize=10&PageNumber=1
+x-agent-id: {{agentId}}
+
+### Get All Reminders with Filters
+GET {{baseUrl}}?PageSize=10&PageNumber=1&reminderType=Call&status=Active&priority=High&startDate=2025-09-01&endDate=2025-09-30
+x-agent-id: {{agentId}}
 
 ### Get Reminder by ID
-GET http://localhost:3000/api/reminders/7b407c2d-3145-40b0-8c47-1d6f62351b2c/e5f94403-0ced-418a-b873-4f1b9b956d5a
+GET {{baseUrl}}/{{testReminderId}}
+x-agent-id: {{agentId}}
 
 ### Update Reminder
-PUT http://localhost:3000/api/reminders/7b407c2d-3145-40b0-8c47-1d6f62351b2c/e5f94403-0ced-418a-b873-4f1b9b956d5a
+PUT {{baseUrl}}/{{testReminderId}}
 Content-Type: application/json
+x-agent-id: {{agentId}}
 
 {
-  "Title": "Updated Title",
-  "Priority": "Low"
+    "Title": "Updated Follow up call",
+    "Priority": "Medium",
+    "Status": "Active",
+    "Notes": "Updated notes for the reminder"
 }
 
 ### Delete Reminder
-DELETE http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/62AF9656-E29E-4447-915B-68B58DDBF6C2
+DELETE {{baseUrl}}/{{testReminderId}}
+x-agent-id: {{agentId}}
 
 ### Complete Reminder
-POST http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/62AF9656-E29E-4447-915B-68B58DDBF6C2/complete
+POST {{baseUrl}}/{{testReminderId}}/complete
 Content-Type: application/json
+x-agent-id: {{agentId}}
 
 {
-  "notes": "Task done"
+    "notes": "Successfully completed the call with client"
 }
 
-### Get Today Birthday Reminders
-GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/birthdays
+### Get Today's Reminders
+GET {{baseUrl}}/today
+x-agent-id: {{agentId}}
+
+### Get Birthday Reminders
+GET {{baseUrl}}/birthdays
+x-agent-id: {{agentId}}
 
 ### Get Policy Expiry Reminders
-GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/policy-expiries?daysAhead=15
+GET {{baseUrl}}/policy-expiries?daysAhead=30
+x-agent-id: {{agentId}}
+
+### Get Policy Expiry Reminders (15 days ahead)
+GET {{baseUrl}}/policy-expiries?daysAhead=15
+x-agent-id: {{agentId}}
 
 ### Get Reminder Settings
-GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/settings
+GET {{baseUrl}}/settings
+x-agent-id: {{agentId}}
 
 ### Update Reminder Settings
-PUT http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/settings
+PUT {{baseUrl}}/settings
 Content-Type: application/json
+x-agent-id: {{agentId}}
 
 {
-  "ReminderType": "Birthday",
-  "IsEnabled": true,
-  "DaysBefore": 3,
-  "TimeOfDay": "09:00:00",
-  "RepeatDaily": false
+    "ReminderType": "Birthday",
+    "IsEnabled": true,
+    "DaysBefore": 3,
+    "TimeOfDay": "09:00:00",
+    "RepeatDaily": false
 }
 
 ### Get Reminder Statistics
-GET http://localhost:3000/api/reminders/5C24F39E-7759-4ECD-AAC7-6787A1F46ECD/statistics
+GET {{baseUrl}}/statistics
+x-agent-id: {{agentId}}
 
-### Validate Phone
-GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/validate-phone?phoneNumber=0712345678&countryCode=+254
-GET http://localhost:3000/api/reminders/<agentId>/statistics
-
-
-### Get Reminders by Type
-GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/type/call
+### Validate Phone Number
+POST {{baseUrl}}/validate-phone
 Content-Type: application/json
+x-agent-id: {{agentId}}
 
-###
+{
+    "phoneNumber": "0712345678",
+    "countryCode": "+254"
+}
 
-### Get Reminders by Type (meeting)
-GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/type/meeting
+### Get Reminders by Type - Call
+GET {{baseUrl}}/type/Call
+x-agent-id: {{agentId}}
+
+### Get Reminders by Type - Visit
+GET {{baseUrl}}/type/Visit
+x-agent-id: {{agentId}}
+
+### Get Reminders by Type - Policy Expiry
+GET {{baseUrl}}/type/Policy%20Expiry
+x-agent-id: {{agentId}}
+
+### Get Reminders by Type - Birthday
+GET {{baseUrl}}/type/Birthday
+x-agent-id: {{agentId}}
+
+### Get Reminders by Type - Appointment
+GET {{baseUrl}}/type/Appointment
+x-agent-id: {{agentId}}
+
+### Get Reminders by Status - Active
+GET {{baseUrl}}/status/Active
+x-agent-id: {{agentId}}
+
+### Get Reminders by Status - Completed
+GET {{baseUrl}}/status/Completed
+x-agent-id: {{agentId}}
+
+### Get Reminders by Status - Cancelled
+GET {{baseUrl}}/status/Cancelled
+x-agent-id: {{agentId}}
+
+### Create Birthday Reminder
+POST {{baseUrl}}
 Content-Type: application/json
+x-agent-id: {{agentId}}
 
-###
+{
+    "ReminderType": "Birthday",
+    "Title": "Client Birthday - Sarah Johnson",
+    "Description": "Send birthday wishes and follow up",
+    "ReminderDate": "2025-09-20",
+    "ReminderTime": "10:00:00",
+    "Priority": "Medium",
+    "ClientName": "Sarah Johnson",
+    "EnableSMS": true,
+    "EnableWhatsApp": true,
+    "EnablePushNotification": true,
+    "AdvanceNotice": "2 days",
+    "CustomMessage": "Happy Birthday! Hope you have a wonderful day.",
+    "AutoSend": true
+}
 
-### Get Reminders by Status (pending)
-GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/status/pending
+### Create Policy Expiry Reminder
+POST {{baseUrl}}
 Content-Type: application/json
+x-agent-id: {{agentId}}
 
-###
+{
+    "ReminderType": "Policy Expiry",
+    "Title": "Policy Expiring - Auto Insurance",
+    "Description": "Contact client about policy renewal",
+    "ReminderDate": "2025-09-25",
+    "ReminderTime": "09:00:00",
+    "Priority": "High",
+    "ClientName": "Mike Wilson",
+    "EnableSMS": true,
+    "EnableWhatsApp": false,
+    "EnablePushNotification": true,
+    "AdvanceNotice": "7 days",
+    "CustomMessage": "Your auto insurance policy is expiring soon. Please contact us to renew.",
+    "AutoSend": false,
+    "Notes": "Critical renewal - high value client"
+}
 
-### Get Reminders by Status (completed)
-GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/status/completed
+### Create Appointment Reminder
+POST {{baseUrl}}
 Content-Type: application/json
+x-agent-id: {{agentId}}
+
+{
+    "ReminderType": "Appointment",
+    "Title": "Client Meeting - Policy Review",
+    "Description": "Annual policy review meeting",
+    "ReminderDate": "2025-09-18",
+    "ReminderTime": "15:30:00",
+    "Priority": "High",
+    "ClientName": "Robert Brown",
+    "EnableSMS": true,
+    "EnableWhatsApp": true,
+    "EnablePushNotification": true,
+    "AdvanceNotice": "1 day",
+    "CustomMessage": "Reminder: You have an appointment tomorrow at 3:30 PM for your policy review.",
+    "AutoSend": true,
+    "Notes": "Prepare policy documents and renewal options"
+}
+
+### Create Custom Reminder
+POST {{baseUrl}}
+Content-Type: application/json
+x-agent-id: {{agentId}}
+
+{
+    "ReminderType": "Custom",
+    "Title": "Send Monthly Newsletter",
+    "Description": "Prepare and send monthly insurance newsletter to all clients",
+    "ReminderDate": "2025-09-30",
+    "ReminderTime": "11:00:00",
+    "Priority": "Low",
+    "EnableSMS": false,
+    "EnableWhatsApp": false,
+    "EnablePushNotification": true,
+    "AdvanceNotice": "1 day",
+    "CustomMessage": "Time to prepare the monthly newsletter",
+    "AutoSend": false,
+    "Notes": "Include updates on new policies and industry news"
+}

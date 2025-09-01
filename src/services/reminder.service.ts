@@ -1,6 +1,9 @@
-// services/reminders.service.ts
+// =============================================
+// UPDATED BACKEND SERVICE - reminders.service.ts
+// =============================================
+
 import { Pool } from 'pg';
-import { poolPromise } from '../../db'; // Assuming this now returns a PostgreSQL pool
+import { poolPromise } from '../../db';
 import {
     Reminder,
     ReminderSettings,
@@ -14,12 +17,12 @@ import {
 } from '../interfaces/reminders';
 
 export interface ReminderStatistics {
-  TotalActive: number;
-  TotalCompleted: number;
-  TodayReminders: number;
-  UpcomingReminders: number;
-  HighPriority: number;
-  Overdue: number;
+    TotalActive: number;
+    TotalCompleted: number;
+    TodayReminders: number;
+    UpcomingReminders: number;
+    HighPriority: number;
+    Overdue: number;
 }
 
 export class ReminderService {
@@ -28,7 +31,6 @@ export class ReminderService {
         console.log('📝 Backend: Creating reminder with raw data:', reminderData);
         
         try {
-            // Robust time validation and formatting
             let validatedTime: string | null = null;
             
             if (reminderData.ReminderTime) {
@@ -89,7 +91,474 @@ export class ReminderService {
         }
     }
 
-    // PostgreSQL time validation method
+    /** Get all reminders with filters and pagination */
+public async getAllReminders(agentId: string, filters: ReminderFilters = {}): Promise<PaginatedReminderResponse> {
+        const pool = await poolPromise as Pool;
+        const client = await pool.connect();
+        
+        try {
+            console.log('🔍 ReminderService.getAllReminders - Starting...');
+            console.log('🔍 AgentId:', agentId);
+            console.log('🔍 Filters:', filters);
+
+            // Determine which function to use based on filters
+            const hasFilters = filters.ReminderType || 
+                              filters.Status || 
+                              filters.Priority || 
+                              filters.ClientId;
+
+            let query: string;
+            let values: any[];
+
+            if (hasFilters) {
+                // Use filtered function when filters are applied
+                query = `
+                    SELECT * FROM sp_get_all_reminders_with_filters(
+                        $1::uuid, $2::varchar, $3::varchar, $4::varchar, 
+                        $5::date, $6::date, $7::uuid, $8::integer, $9::integer
+                    )
+                `;
+                
+                values = [
+                    agentId,
+                    filters.ReminderType || null,
+                    filters.Status || null,
+                    filters.Priority || null,
+                    filters.StartDate || null,
+                    filters.EndDate || null,
+                    filters.ClientId || null,
+                    filters.PageNumber || 1,
+                    filters.PageSize || 20
+                ];
+            } else {
+                // Use simple function when no filters
+                query = `
+                    SELECT * FROM sp_get_all_reminders(
+                        $1::uuid, $2::date, $3::date, $4::integer, $5::integer
+                    )
+                `;
+                
+                values = [
+                    agentId,
+                    filters.StartDate || null,
+                    filters.EndDate || null,
+                    filters.PageNumber || 1,
+                    filters.PageSize || 20
+                ];
+            }
+
+            console.log('🔍 Executing query:', query);
+            console.log('🔍 Query values:', values);
+
+            const result = await client.query(query, values);
+            console.log('✅ Query executed successfully, rows:', result.rows.length);
+
+            // Map database results to frontend-compatible format
+            const reminders: Reminder[] = result.rows.map(row => this.mapDatabaseRowToReminder(row));
+            const pageSize = filters.PageSize || 20;
+            const currentPage = filters.PageNumber || 1;
+
+            let totalRecords = 0;
+            if (hasFilters && result.rows.length > 0) {
+                // Get total records from the filtered function result
+                totalRecords = parseInt(result.rows[0].total_records) || 0;
+            } else if (!hasFilters) {
+                // Get total count for non-filtered results
+                const countQuery = `
+                    WITH all_reminders_count AS (
+                        SELECT COUNT(*) as count FROM reminders WHERE agent_id = $1
+                        UNION ALL
+                        SELECT COUNT(*) FROM client_policies cp
+                        INNER JOIN clients c ON c.client_id = cp.client_id
+                        WHERE c.agent_id = $1 AND cp.is_active = TRUE 
+                        AND cp.end_date BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '30 days')
+                        UNION ALL
+                        SELECT COUNT(*) FROM clients c
+                        WHERE c.agent_id = $1 AND c.is_active = TRUE 
+                        AND c.date_of_birth IS NOT NULL
+                        AND (
+                            CASE
+                                WHEN EXTRACT(MONTH FROM c.date_of_birth)::INT = 2
+                                     AND EXTRACT(DAY FROM c.date_of_birth)::INT = 29
+                                     AND NOT ( (EXTRACT(YEAR FROM CURRENT_DATE)::INT % 400 = 0) OR (EXTRACT(YEAR FROM CURRENT_DATE)::INT % 4 = 0 AND EXTRACT(YEAR FROM CURRENT_DATE)::INT % 100 != 0) )
+                                THEN make_date(EXTRACT(YEAR FROM CURRENT_DATE)::INT, 2, 28)
+                                ELSE make_date(EXTRACT(YEAR FROM CURRENT_DATE)::INT, EXTRACT(MONTH FROM c.date_of_birth)::INT, EXTRACT(DAY FROM c.date_of_birth)::INT)
+                            END
+                        ) BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '7 days')
+                        UNION ALL
+                        SELECT COUNT(*) FROM appointments a
+                        WHERE a.agent_id = $1 AND a.is_active = TRUE
+                    )
+                    SELECT SUM(count) as total FROM all_reminders_count
+                `;
+                const countResult = await client.query(countQuery, [agentId]);
+                totalRecords = parseInt(countResult.rows[0]?.total) || 0;
+            } else {
+                totalRecords = reminders.length;
+            }
+
+            const response: PaginatedReminderResponse = {
+                reminders,
+                totalRecords,
+                currentPage,
+                totalPages: Math.ceil(totalRecords / pageSize),
+                pageSize
+            };
+
+            console.log('✅ getAllReminders completed:', {
+                totalReminders: reminders.length,
+                totalRecords,
+                currentPage,
+                totalPages: response.totalPages
+            });
+
+            return response;
+
+        } catch (error) {
+            console.error('❌ ReminderService.getAllReminders - Error:', error);
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
+
+    /** Get reminder by ID - FIXED to match frontend expectations */
+    public async getReminderById(reminderId: string, agentId: string): Promise<Reminder | null> {
+        const pool = await poolPromise as Pool;
+        const client = await pool.connect();
+        
+        try {
+            console.log('🔍 ReminderService.getReminderById - Starting...');
+            console.log('🔍 ReminderId:', reminderId);
+            console.log('🔍 AgentId:', agentId);
+
+            const query = `
+                SELECT * FROM sp_get_reminder_by_id($1::uuid, $2::uuid)
+            `;
+            
+            const result = await client.query(query, [reminderId, agentId]);
+            
+            if (result.rows.length === 0) {
+                console.log('ℹ️ No reminder found for ID:', reminderId);
+                return null;
+            }
+            
+            const reminder = this.mapDatabaseRowToReminder(result.rows[0]);
+            console.log('✅ getReminderById completed:', reminder.Title);
+            
+            return reminder;
+
+        } catch (error) {
+            console.error('❌ ReminderService.getReminderById - Error:', error);
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
+
+    /** Update a reminder */
+    public async updateReminder(reminderId: string, agentId: string, updateData: UpdateReminderRequest): Promise<{ RowsAffected: number }> {
+        const pool = await poolPromise as Pool;
+        const client = await pool.connect();
+        
+        try {
+            let validatedTime: string | null = null;
+            if (updateData.ReminderTime) {
+                validatedTime = this.validateAndFormatPostgreSQLTime(updateData.ReminderTime);
+            }
+            
+            const query = `
+                SELECT sp_update_reminder(
+                    $1::uuid, $2::uuid, $3::varchar(200), $4::text, $5::date,
+                    $6::time, $7::varchar(10), $8::varchar(20), $9::boolean,
+                    $10::boolean, $11::boolean, $12::varchar(20), $13::text,
+                    $14::boolean, $15::text
+                ) as rows_affected
+            `;
+            
+            const values = [
+                reminderId,
+                agentId,
+                updateData.Title || null,
+                updateData.Description || null,
+                updateData.ReminderDate || null,
+                validatedTime,
+                updateData.Priority || null,
+                updateData.Status || null,
+                updateData.EnableSMS || null,
+                updateData.EnableWhatsApp || null,
+                updateData.EnablePushNotification || null,
+                updateData.AdvanceNotice || null,
+                updateData.CustomMessage || null,
+                updateData.AutoSend || null,
+                updateData.Notes || null
+            ];
+            
+            const result = await client.query(query, values);
+            return { RowsAffected: result.rows[0].rows_affected };
+        } finally {
+            client.release();
+        }
+    }
+
+    /** Delete a reminder */
+    public async deleteReminder(reminderId: string, agentId: string): Promise<{ RowsAffected: number }> {
+        const pool = await poolPromise as Pool;
+        const client = await pool.connect();
+        
+        try {
+            const query = `
+                SELECT sp_delete_reminder($1::uuid, $2::uuid) as rows_affected
+            `;
+            
+            const result = await client.query(query, [reminderId, agentId]);
+            return { RowsAffected: result.rows[0].rows_affected };
+        } finally {
+            client.release();
+        }
+    }
+
+    /** Complete a reminder */
+    public async completeReminder(reminderId: string, agentId: string, notes?: string): Promise<{ RowsAffected: number }> {
+        const pool = await poolPromise as Pool;
+        const client = await pool.connect();
+        
+        try {
+            const query = `
+                SELECT sp_complete_reminder($1::uuid, $2::uuid, $3::text) as rows_affected
+            `;
+            
+            const result = await client.query(query, [reminderId, agentId, notes || null]);
+            return { RowsAffected: result.rows[0].rows_affected };
+        } finally {
+            client.release();
+        }
+    }
+
+    /** Get today's reminders */
+    public async getTodayReminders(agentId: string): Promise<Reminder[]> {
+        const pool = await poolPromise as Pool;
+        const client = await pool.connect();
+        
+        try {
+            const query = `
+                SELECT * FROM sp_get_today_reminders($1::uuid)
+            `;
+            
+            const result = await client.query(query, [agentId]);
+            return result.rows.map(row => this.mapDatabaseRowToReminder(row));
+        } finally {
+            client.release();
+        }
+    }
+
+    /** Get reminder settings - FIXED mapping */
+    public async getReminderSettings(agentId: string): Promise<ReminderSettings[]> {
+        const pool = await poolPromise as Pool;
+        const client = await pool.connect();
+        
+        try {
+            const query = `
+                SELECT * FROM sp_get_reminder_settings($1::uuid)
+            `;
+            
+            const result = await client.query(query, [agentId]);
+            return result.rows.map(row => this.mapDatabaseRowToReminderSettings(row));
+        } finally {
+            client.release();
+        }
+    }
+
+    /** Update reminder settings - FIXED to accept ReminderSettings object */
+    public async updateReminderSettings(agentId: string, settings: ReminderSettings): Promise<void> {
+        const pool = await poolPromise as Pool;
+        const client = await pool.connect();
+        
+        try {
+            const query = `
+                SELECT sp_update_reminder_settings(
+                    $1::uuid, $2::varchar(50), $3::boolean, $4::integer, $5::time, $6::boolean
+                )
+            `;
+            
+            await client.query(query, [
+                agentId, 
+                settings.ReminderType, 
+                settings.IsEnabled, 
+                settings.DaysBefore, 
+                settings.TimeOfDay, 
+                settings.RepeatDaily
+            ]);
+        } finally {
+            client.release();
+        }
+    }
+
+    /** Get reminder statistics - FIXED return type */
+    public async getReminderStatistics(agentId: string): Promise<ReminderStatistics> {
+        try {
+            const pool = await poolPromise as Pool;
+            const client = await pool.connect();
+            
+            try {
+                const query = `
+                    SELECT * FROM sp_get_reminder_statistics($1::uuid)
+                `;
+                
+                const result = await client.query(query, [agentId]);
+
+                if (result.rows.length === 0) {
+                    return {
+                        TotalActive: 0,
+                        TotalCompleted: 0,
+                        TodayReminders: 0,
+                        UpcomingReminders: 0,
+                        HighPriority: 0,
+                        Overdue: 0
+                    };
+                }
+
+                const row = result.rows[0];
+                return {
+                    TotalActive: parseInt(row.total_active) || 0,
+                    TotalCompleted: parseInt(row.total_completed) || 0,
+                    TodayReminders: parseInt(row.today_reminders) || 0,
+                    UpcomingReminders: parseInt(row.upcoming_reminders) || 0,
+                    HighPriority: parseInt(row.high_priority) || 0,
+                    Overdue: parseInt(row.overdue) || 0
+                };
+            } finally {
+                client.release();
+            }
+        } catch (error: unknown) {
+            console.error('Error fetching reminder statistics:', error);
+            throw error;
+        }
+    }
+
+    /** Get reminders filtered by ReminderType */
+    async getRemindersByType(agentId: string, reminderType: string): Promise<Reminder[]> {
+        try {
+            const pool = await poolPromise as Pool;
+            const client = await pool.connect();
+            
+            try {
+                const query = `
+                    SELECT * FROM sp_get_reminders_by_type($1::uuid, $2::varchar(50))
+                `;
+                
+                const result = await client.query(query, [agentId, reminderType]);
+                return result.rows.map(row => this.mapDatabaseRowToReminder(row));
+            } finally {
+                client.release();
+            }
+        } catch (error: unknown) {
+            console.error('Error fetching reminders by type:', error);
+            throw error;
+        }
+    }
+
+    /** Get reminders filtered by Status */
+    async getRemindersByStatus(agentId: string, status: string): Promise<Reminder[]> {
+        try {
+            const pool = await poolPromise as Pool;
+            const client = await pool.connect();
+            
+            try {
+                const query = `
+                    SELECT * FROM sp_get_reminders_by_status($1::uuid, $2::varchar(20))
+                `;
+                
+                const result = await client.query(query, [agentId, status]);
+                return result.rows.map(row => this.mapDatabaseRowToReminder(row));
+            } finally {
+                client.release();
+            }
+        } catch (error: unknown) {
+            console.error('Error fetching reminders by status:', error);
+            throw error;
+        }
+    }
+
+    /** Get birthday reminders - FIXED mapping */
+    public async getBirthdayReminders(agentId: string): Promise<BirthdayReminder[]> {
+        const pool = await poolPromise as Pool;
+        const client = await pool.connect();
+        
+        try {
+            const query = `
+                SELECT * FROM sp_get_today_birthday_reminders($1::uuid)
+            `;
+            
+            const result = await client.query(query, [agentId]);
+            return result.rows.map(row => ({
+                ClientId: row.client_id,
+                FirstName: row.first_name,
+                Surname: row.last_name,
+                LastName: row.last_name, // Frontend expects both Surname and LastName
+                PhoneNumber: row.phone,
+                Email: row.email,
+                DateOfBirth: this.formatDateToISOString(row.date_of_birth),
+                Age: row.age
+            }));
+        } finally {
+            client.release();
+        }
+    }
+
+    /** Get policy expiry reminders - FIXED mapping */
+    public async getPolicyExpiryReminders(agentId: string, daysAhead: number = 30): Promise<PolicyExpiryReminder[]> {
+        const pool = await poolPromise as Pool;
+        const client = await pool.connect();
+        
+        try {
+            const query = `
+                SELECT * FROM sp_get_policy_expiry_reminders($1::uuid, $2::integer)
+            `;
+            
+            const result = await client.query(query, [agentId, daysAhead]);
+            return result.rows.map(row => ({
+                PolicyId: row.policy_id,
+                ClientId: row.client_id,
+                PolicyName: row.policy_name,
+                PolicyType: row.policy_type,
+                CompanyName: row.company_name,
+                EndDate: this.formatDateToISOString(row.end_date),
+                FirstName: row.first_name,
+                Surname: row.last_name,
+                PhoneNumber: row.phone,
+                Email: row.email,
+                DaysUntilExpiry: row.days_until_expiry
+            }));
+        } finally {
+            client.release();
+        }
+    }
+
+    /** Validate phone number */
+    public async validatePhoneNumber(phoneNumber: string, countryCode: string = '+254'): Promise<PhoneValidationResult> {
+        const pool = await poolPromise as Pool;
+        const client = await pool.connect();
+        
+        try {
+            const query = `
+                SELECT * FROM sp_validate_phone_number($1::varchar(50), $2::varchar(5))
+            `;
+            
+            const result = await client.query(query, [phoneNumber, countryCode]);
+            const row = result.rows[0];
+            
+            return {
+                IsValid: row.is_valid,
+                FormattedNumber: row.formatted_number,
+                ValidationMessage: row.validation_message
+            };
+        } finally {
+            client.release();
+        }
+    }
+
+    // PostgreSQL time validation method - UNCHANGED
     private validateAndFormatPostgreSQLTime(timeString: string | null | undefined): string | null {
         console.log('🕐 Backend: Validating PostgreSQL time:', timeString, typeof timeString);
         
@@ -98,11 +567,9 @@ export class ReminderService {
             return null;
         }
         
-        // Clean the input
         let cleanTime = timeString.toString().trim();
         console.log('🕐 Backend: Cleaned time:', cleanTime);
         
-        // Handle various time formats
         try {
             // Format 1: Already HH:MM:SS
             if (/^\d{2}:\d{2}:\d{2}$/.test(cleanTime)) {
@@ -156,294 +623,88 @@ export class ReminderService {
             console.error('🕐 Backend: Time validation failed:', errorMessage);
             console.error('🕐 Backend: Original input was:', timeString);
             
-            // Instead of throwing, return null to let the database handle it
             console.log('🕐 Backend: Returning null due to validation failure');
             return null;
         }
     }
 
-    /** Get all reminders with filters and pagination */
-    public async getAllReminders(agentId: string, filters: ReminderFilters = {}): Promise<PaginatedReminderResponse> {
-        const pool = await poolPromise as Pool;
-        const client = await pool.connect();
-        
-        try {
-            const query = `
-                SELECT * FROM get_all_reminders(
-                    $1::uuid, $2::date, $3::date, $4::integer, $5::integer
-                )
-            `;
-            
-            const values = [
-                agentId,
-                filters.StartDate || null,
-                filters.EndDate || null,
-                filters.PageSize || 20,
-                filters.PageNumber || 1
-            ];
-            
-            const result = await client.query(query, values);
-            const reminders: Reminder[] = result.rows;
-            const pageSize = filters.PageSize || 20;
-
-            // Get total count for pagination
-            const countQuery = `
-                SELECT COUNT(*) as total FROM reminders 
-                WHERE agent_id = $1 
-                AND ($2::date IS NULL OR reminder_date >= $2)
-                AND ($3::date IS NULL OR reminder_date <= $3)
-            `;
-            const countResult = await client.query(countQuery, [
-                agentId, 
-                filters.StartDate || null, 
-                filters.EndDate || null
-            ]);
-            const totalRecords = parseInt(countResult.rows[0].total);
-
-            return {
-                reminders,
-                totalRecords,
-                currentPage: filters.PageNumber || 1,
-                totalPages: Math.ceil(totalRecords / pageSize),
-                pageSize
-            };
-        } finally {
-            client.release();
-        }
+    /** UPDATED: Map database row to Reminder object with PROPER CASING and ALL frontend fields */
+    private mapDatabaseRowToReminder(row: any): Reminder {
+        return {
+            ReminderId: row.reminder_id,
+            ClientId: row.client_id,
+            AppointmentId: row.appointment_id,
+            AgentId: row.agent_id,
+            ReminderType: row.reminder_type,
+            Title: row.title,
+            Description: row.description,
+            ReminderDate: this.formatDateToISOString(row.reminder_date),
+            ReminderTime: row.reminder_time,
+            ClientName: row.client_name,
+            Priority: row.priority,
+            Status: row.status,
+            EnableSMS: row.enable_sms,
+            EnableWhatsApp: row.enable_whatsapp,
+            EnablePushNotification: row.enable_push_notification,
+            AdvanceNotice: row.advance_notice,
+            CustomMessage: row.custom_message,
+            AutoSend: row.auto_send,
+            Notes: row.notes,
+            CreatedDate: this.formatDateTimeToISOString(row.created_date),
+            ModifiedDate: this.formatDateTimeToISOString(row.modified_date),
+            CompletedDate: row.completed_date ? this.formatDateTimeToISOString(row.completed_date) : undefined,
+            // FIXED: Add missing frontend fields
+            ClientPhone: row.client_phone,
+            ClientEmail: row.client_email,
+            FullClientName: row.full_client_name || row.client_name
+        };
     }
 
-    /** Get reminder by ID */
-    public async getReminderById(reminderId: string, agentId: string): Promise<Reminder | null> {
-        const pool = await poolPromise as Pool;
-        const client = await pool.connect();
-        
-        try {
-            const query = `
-                SELECT * FROM get_reminder_by_id($1::uuid, $2::uuid)
-            `;
-            
-            const result = await client.query(query, [reminderId, agentId]);
-            return result.rows.length ? result.rows[0] : null;
-        } finally {
-            client.release();
-        }
+    /** UPDATED: Map database row to ReminderSettings object with PROPER CASING */
+    private mapDatabaseRowToReminderSettings(row: any): ReminderSettings {
+        return {
+            ReminderSettingId: row.reminder_setting_id,
+            AgentId: row.agent_id,
+            ReminderType: row.reminder_type,
+            IsEnabled: row.is_enabled,
+            DaysBefore: row.days_before,
+            TimeOfDay: row.time_of_day,
+            RepeatDaily: row.repeat_daily,
+            CreatedDate: this.formatDateTimeToISOString(row.created_date),
+            ModifiedDate: this.formatDateTimeToISOString(row.modified_date)
+        };
     }
 
-    /** Update a reminder */
-    public async updateReminder(reminderId: string, agentId: string, updateData: UpdateReminderRequest): Promise<{ RowsAffected: number }> {
-        const pool = await poolPromise as Pool;
-        const client = await pool.connect();
+    /** Format date to ISO string - UNCHANGED */
+    private formatDateToISOString(date: any): string {
+        if (!date) return '';
         
-        try {
-            const query = `
-                SELECT update_reminder(
-                    $1::uuid, $2::uuid, $3::varchar(200), $4::text, $5::date,
-                    $6::time, $7::varchar(10), $8::varchar(20), $9::boolean,
-                    $10::boolean, $11::boolean, $12::varchar(20), $13::text,
-                    $14::boolean, $15::text
-                ) as rows_affected
-            `;
-            
-            const values = [
-                reminderId,
-                agentId,
-                updateData.Title || null,
-                updateData.Description || null,
-                updateData.ReminderDate || null,
-                updateData.ReminderTime || null,
-                updateData.Priority || null,
-                updateData.Status || null,
-                updateData.EnableSMS || false,
-                updateData.EnableWhatsApp || false,
-                updateData.EnablePushNotification || false,
-                updateData.AdvanceNotice || null,
-                updateData.CustomMessage || null,
-                updateData.AutoSend || false,
-                updateData.Notes || null
-            ];
-            
-            const result = await client.query(query, values);
-            return { RowsAffected: result.rows[0].rows_affected };
-        } finally {
-            client.release();
-        }
-    }
-
-    /** Delete a reminder */
-    public async deleteReminder(reminderId: string, agentId: string): Promise<{ RowsAffected: number }> {
-        const pool = await poolPromise as Pool;
-        const client = await pool.connect();
-        
-        try {
-            const query = `
-                SELECT delete_reminder($1::uuid, $2::uuid) as rows_affected
-            `;
-            
-            const result = await client.query(query, [reminderId, agentId]);
-            return { RowsAffected: result.rows[0].rows_affected };
-        } finally {
-            client.release();
-        }
-    }
-
-    /** Complete a reminder */
-    public async completeReminder(reminderId: string, agentId: string, notes?: string): Promise<{ RowsAffected: number }> {
-        const pool = await poolPromise as Pool;
-        const client = await pool.connect();
-        
-        try {
-            const query = `
-                SELECT complete_reminder($1::uuid, $2::uuid, $3::text) as rows_affected
-            `;
-            
-            const result = await client.query(query, [reminderId, agentId, notes || null]);
-            return { RowsAffected: result.rows[0].rows_affected };
-        } finally {
-            client.release();
-        }
-    }
-
-    /** Get today's reminders */
-    public async getTodayReminders(agentId: string): Promise<Reminder[]> {
-        const pool = await poolPromise as Pool;
-        const client = await pool.connect();
-        
-        try {
-            const query = `
-                SELECT * FROM get_today_reminders($1::uuid)
-            `;
-            
-            const result = await client.query(query, [agentId]);
-            return result.rows;
-        } finally {
-            client.release();
-        }
-    }
-
-    /** Get reminder settings */
-    public async getReminderSettings(agentId: string): Promise<ReminderSettings[]> {
-        const pool = await poolPromise as Pool;
-        const client = await pool.connect();
-        
-        try {
-            const query = `
-                SELECT * FROM get_reminder_settings($1::uuid)
-            `;
-            
-            const result = await client.query(query, [agentId]);
-            return result.rows;
-        } finally {
-            client.release();
-        }
-    }
-
-    /** Update reminder settings */
-    public async updateReminderSettings(agentId: string, reminderType: string, isEnabled: boolean, daysBefore: number, timeOfDay: string, repeatDaily: boolean = false): Promise<void> {
-        const pool = await poolPromise as Pool;
-        const client = await pool.connect();
-        
-        try {
-            const query = `
-                SELECT update_reminder_settings(
-                    $1::uuid, $2::varchar(50), $3::boolean, $4::integer, $5::time, $6::boolean
-                )
-            `;
-            
-            await client.query(query, [agentId, reminderType, isEnabled, daysBefore, timeOfDay, repeatDaily]);
-        } finally {
-            client.release();
-        }
-    }
-
-    /**
-     * Get reminder statistics by AgentId
-     */
-    public async getReminderStatistics(agentId: string): Promise<ReminderStatistics> {
-        try {
-            const pool = await poolPromise as Pool;
-            const client = await pool.connect();
-            
-            try {
-                const query = `
-                    SELECT * FROM get_reminder_statistics($1::uuid)
-                `;
-                
-                const result = await client.query(query, [agentId]);
-
-                if (result.rows.length === 0) {
-                    return {
-                        TotalActive: 0,
-                        TotalCompleted: 0,
-                        TodayReminders: 0,
-                        UpcomingReminders: 0,
-                        HighPriority: 0,
-                        Overdue: 0
-                    };
-                }
-
-                const row = result.rows[0];
-                return {
-                    TotalActive: parseInt(row.total_active) || 0,
-                    TotalCompleted: parseInt(row.total_completed) || 0,
-                    TodayReminders: parseInt(row.today_reminders) || 0,
-                    UpcomingReminders: parseInt(row.upcoming_reminders) || 0,
-                    HighPriority: parseInt(row.high_priority) || 0,
-                    Overdue: parseInt(row.overdue) || 0
-                };
-            } finally {
-                client.release();
+        if (typeof date === 'string') {
+            if (date.includes('-')) {
+                return date.split('T')[0];
             }
-        } catch (error: unknown) {
-            console.error('Error fetching reminder statistics:', error);
-            throw error;
+            return date;
         }
+        
+        if (date instanceof Date) {
+            return date.toISOString().split('T')[0];
+        }
+        
+        return String(date);
     }
 
-    /**
-     * Get reminders filtered by ReminderType
-     */
-    async getRemindersByType(agentId: string, reminderType: string): Promise<Reminder[]> {
-        try {
-            const pool = await poolPromise as Pool;
-            const client = await pool.connect();
-            
-            try {
-                const query = `
-                    SELECT * FROM get_reminders_by_type($1::uuid, $2::varchar(50))
-                `;
-                
-                const result = await client.query(query, [agentId, reminderType]);
-                return result.rows;
-            } finally {
-                client.release();
-            }
-        } catch (error: unknown) {
-            console.error('Error fetching reminders by type:', error);
-            throw error;
+    /** Format datetime to ISO string - UNCHANGED */
+    private formatDateTimeToISOString(datetime: any): string {
+        if (!datetime) return '';
+        
+        if (typeof datetime === 'string') {
+            return datetime;
         }
-    }
-
-    /**
-     * Get reminders filtered by Status
-     */
-    async getRemindersByStatus(agentId: string, status: string): Promise<Reminder[]> {
-        try {
-            const pool = await poolPromise as Pool;
-            const client = await pool.connect();
-            
-            try {
-                const query = `
-                    SELECT * FROM get_reminders_by_status($1::uuid, $2::varchar(20))
-                `;
-                
-                const result = await client.query(query, [agentId, status]);
-                return result.rows;
-            } finally {
-                client.release();
-            }
-        } catch (error: unknown) {
-            console.error('Error fetching reminders by status:', error);
-            throw error;
+        
+        if (datetime instanceof Date) {
+            return datetime.toISOString();
         }
+        
+        return String(datetime);
     }
 }
