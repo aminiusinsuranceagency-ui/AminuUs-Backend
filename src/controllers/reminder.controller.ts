@@ -74,74 +74,78 @@ export class RemindersController {
     };
 
     /** Get all reminders with filters and pagination */
-     public getAllReminders = async (req: Request, res: Response): Promise<void> => {
-        try {
-            console.log('🌟 Controller: getAllReminders - Starting...');
-            
-            // Get agentId from URL params or headers
-            const agentId = req.params.agentId || req.headers['x-agent-id'] as string;
-            
-            if (!agentId) {
-                console.log('❌ Controller: Missing agentId');
-                res.status(400).json({
-                    success: false,
-                    message: 'Agent ID is required'
-                });
-                return;
-            }
-
-            console.log('📋 Controller: AgentId:', agentId);
-            console.log('📋 Controller: Query params:', req.query);
-
-            // Map frontend query parameters to service filters
-            const filters: ReminderFilters = {
-                // Frontend sends PascalCase, convert to match our interface
-                ReminderType: req.query.reminderType as string || req.query.ReminderType as string,
-                Status: req.query.status as string || req.query.Status as string,
-                Priority: req.query.priority as string || req.query.Priority as string,
-                StartDate: req.query.startDate as string || req.query.StartDate as string,
-                EndDate: req.query.endDate as string || req.query.EndDate as string,
-                ClientId: req.query.clientId as string || req.query.ClientId as string,
-                PageSize: parseInt(req.query.PageSize as string || req.query.pageSize as string || '20'),
-                PageNumber: parseInt(req.query.PageNumber as string || req.query.pageNumber as string || '1')
-            };
-
-            // Remove undefined values
-            Object.keys(filters).forEach(key => {
-                if (filters[key as keyof ReminderFilters] === undefined || 
-                    filters[key as keyof ReminderFilters] === null || 
-                    filters[key as keyof ReminderFilters] === '') {
-                    delete filters[key as keyof ReminderFilters];
-                }
-            });
-
-            console.log('📋 Controller: Processed filters:', filters);
-
-            const result = await this.reminderService.getAllReminders(agentId, filters);
-            
-            console.log('✅ Controller: getAllReminders success:', {
-                totalReminders: result.reminders.length,
-                totalRecords: result.totalRecords,
-                currentPage: result.currentPage,
-                totalPages: result.totalPages
-            });
-
-            res.status(200).json({
-                success: true,
-                data: result,
-                message: 'Reminders retrieved successfully'
-            });
-
-        } catch (error) {
-            console.error('❌ Controller: Error getting all reminders:', error);
-            res.status(500).json({
+   /** Get all reminders with filters and pagination - FIXED */
+public getAllReminders = async (req: Request, res: Response): Promise<void> => {
+    try {
+        console.log('🌟 Controller: getAllReminders - Starting...');
+        console.log('🌟 Full URL:', req.originalUrl);
+        console.log('🌟 Method:', req.method);
+        console.log('🌟 Params:', req.params);
+        console.log('🌟 Query:', req.query);
+        
+        // Get agentId from URL params or headers
+        const agentId = req.params.agentId || req.headers['x-agent-id'] as string;
+        
+        if (!agentId) {
+            console.log('❌ Controller: Missing agentId');
+            res.status(400).json({
                 success: false,
-                message: 'Failed to retrieve reminders',
-                error: error instanceof Error ? error.message : 'Unknown error'
+                message: 'Agent ID is required (either in URL or x-agent-id header)'
             });
+            return;
         }
-    };
 
+        console.log('📋 Controller: AgentId:', agentId);
+        console.log('📋 Controller: Query params:', req.query);
+
+        // Map frontend query parameters to service filters
+        const filters: ReminderFilters = {
+            // Frontend sends PascalCase, convert to match our interface
+            ReminderType: req.query.reminderType as string || req.query.ReminderType as string,
+            Status: req.query.status as string || req.query.Status as string,
+            Priority: req.query.priority as string || req.query.Priority as string,
+            StartDate: req.query.startDate as string || req.query.StartDate as string,
+            EndDate: req.query.endDate as string || req.query.EndDate as string,
+            ClientId: req.query.clientId as string || req.query.ClientId as string,
+            PageSize: parseInt(req.query.PageSize as string || req.query.pageSize as string || '20'),
+            PageNumber: parseInt(req.query.PageNumber as string || req.query.pageNumber as string || '1')
+        };
+
+        // Remove undefined values
+        Object.keys(filters).forEach(key => {
+            if (filters[key as keyof ReminderFilters] === undefined || 
+                filters[key as keyof ReminderFilters] === null || 
+                filters[key as keyof ReminderFilters] === '') {
+                delete filters[key as keyof ReminderFilters];
+            }
+        });
+
+        console.log('📋 Controller: Processed filters:', filters);
+
+        const result = await this.reminderService.getAllReminders(agentId, filters);
+        
+        console.log('✅ Controller: getAllReminders success:', {
+            totalReminders: result.reminders.length,
+            totalRecords: result.totalRecords,
+            currentPage: result.currentPage,
+            totalPages: result.totalPages
+        });
+
+        res.status(200).json({
+            success: true,
+            data: result,
+            message: 'Reminders retrieved successfully'
+        });
+
+    } catch (error) {
+        console.error('❌ Controller: Error getting all reminders:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to retrieve reminders',
+            error: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+};
     /** Get reminder by ID */
  public getReminderById = async (req: Request, res: Response): Promise<void> => {
         try {
