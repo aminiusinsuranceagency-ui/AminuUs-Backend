@@ -65,22 +65,8 @@ router.get('/', controller.getAllReminders);
 
 /**
  * =====================
- * Debug middleware
+ * Debug middleware (removed - let Express handle 404s naturally)
  * =====================
  */
-router.use('*', (req, res, next) => {
-    console.log(`🛣️ UNMATCHED Route: ${req.method} ${req.originalUrl}`);
-    console.log(`🛣️ Available routes were checked but none matched`);
-    res.status(404).json({
-        success: false,
-        message: `Route not found: ${req.method} ${req.originalUrl}`,
-        availableRoutes: [
-            'GET /:agentId - Get all reminders',
-            'GET /:agentId/status/:status - Get by status', 
-            'GET /:agentId/type/:type - Get by type',
-            'GET /:agentId/:reminderId - Get specific reminder'
-        ]
-    });
-});
 
 export default router;
