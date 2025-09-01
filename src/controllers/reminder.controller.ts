@@ -345,37 +345,39 @@ export class RemindersController {
     };
 
     /** Get today's reminders */
-    public getTodayReminders = async (req: Request, res: Response): Promise<void> => {
-        try {
-            const agentId = req.headers['x-agent-id'] as string;
-            
-            if (!agentId) {
-                res.status(400).json({ 
-                    success: false, 
-                    message: 'Agent ID is required in headers' 
-                });
-                return;
-            }
-
-            const reminders: Reminder[] = await this.reminderService.getTodayReminders(agentId);
-            
-            res.status(200).json({
-                success: true,
-                message: 'Today\'s reminders retrieved successfully',
-                data: reminders
-            });
-
-        } catch (error: unknown) {
-            console.error('❌ Controller: Error getting today\'s reminders:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-            
-            res.status(500).json({
+   public getTodayReminders = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const agentId = req.headers['x-agent-id'] as string;
+        
+        if (!agentId) {
+            res.status(400).json({
                 success: false,
-                message: 'Failed to retrieve today\'s reminders',
-                error: errorMessage
+                message: 'Agent ID is required in headers (x-agent-id)'
             });
+            return;
         }
-    };
+
+        console.log(`🔍 Getting today's reminders for agent: ${agentId}`);
+        const reminders: Reminder[] = await this.reminderService.getTodayReminders(agentId);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Today\'s reminders retrieved successfully',
+            data: reminders,
+            count: reminders.length
+        });
+        
+    } catch (error: unknown) {
+        console.error('❌ Controller: Error getting today\'s reminders:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        
+        res.status(500).json({
+            success: false,
+            message: 'Failed to retrieve today\'s reminders',
+            error: errorMessage
+        });
+    }
+};
 
     /** Get reminder settings */
     public getReminderSettings = async (req: Request, res: Response): Promise<void> => {
@@ -572,71 +574,84 @@ export class RemindersController {
 
     /** Get birthday reminders */
     public getBirthdayReminders = async (req: Request, res: Response): Promise<void> => {
-        try {
-            const agentId = req.headers['x-agent-id'] as string;
-            
-            if (!agentId) {
-                res.status(400).json({ 
-                    success: false, 
-                    message: 'Agent ID is required in headers' 
-                });
-                return;
-            }
-
-            const birthdayReminders: BirthdayReminder[] = await this.reminderService.getBirthdayReminders(agentId);
-            
-            res.status(200).json({
-                success: true,
-                message: 'Birthday reminders retrieved successfully',
-                data: birthdayReminders
-            });
-
-        } catch (error: unknown) {
-            console.error('❌ Controller: Error getting birthday reminders:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-            
-            res.status(500).json({
+    try {
+        const agentId = req.headers['x-agent-id'] as string;
+        
+        if (!agentId) {
+            res.status(400).json({
                 success: false,
-                message: 'Failed to retrieve birthday reminders',
-                error: errorMessage
+                message: 'Agent ID is required in headers (x-agent-id)'
             });
+            return;
         }
-    };
 
-    /** Get policy expiry reminders */
-    public getPolicyExpiryReminders = async (req: Request, res: Response): Promise<void> => {
-        try {
-            const agentId = req.headers['x-agent-id'] as string;
-            const daysAhead = req.query.daysAhead ? parseInt(req.query.daysAhead as string) : 30;
-            
-            if (!agentId) {
-                res.status(400).json({ 
-                    success: false, 
-                    message: 'Agent ID is required in headers' 
-                });
-                return;
-            }
+        console.log(`🎂 Getting birthday reminders for agent: ${agentId}`);
+        const birthdayReminders: BirthdayReminder[] = await this.reminderService.getBirthdayReminders(agentId);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Birthday reminders retrieved successfully',
+            data: birthdayReminders,
+            count: birthdayReminders.length
+        });
+        
+    } catch (error: unknown) {
+        console.error('❌ Controller: Error getting birthday reminders:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        
+        res.status(500).json({
+            success: false,
+            message: 'Failed to retrieve birthday reminders',
+            error: errorMessage
+        });
+    }
+};
 
-            const policyReminders: PolicyExpiryReminder[] = await this.reminderService.getPolicyExpiryReminders(agentId, daysAhead);
-            
-            res.status(200).json({
-                success: true,
-                message: 'Policy expiry reminders retrieved successfully',
-                data: policyReminders
-            });
-
-        } catch (error: unknown) {
-            console.error('❌ Controller: Error getting policy expiry reminders:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-            
-            res.status(500).json({
+/** Get policy expiry reminders */
+public getPolicyExpiryReminders = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const agentId = req.headers['x-agent-id'] as string;
+        const daysAhead = req.query.daysAhead ? parseInt(req.query.daysAhead as string) : 30;
+        
+        if (!agentId) {
+            res.status(400).json({
                 success: false,
-                message: 'Failed to retrieve policy expiry reminders',
-                error: errorMessage
+                message: 'Agent ID is required in headers (x-agent-id)'
             });
+            return;
         }
-    };
 
+        // Validate daysAhead parameter
+        if (isNaN(daysAhead) || daysAhead < 1 || daysAhead > 365) {
+            res.status(400).json({
+                success: false,
+                message: 'daysAhead must be a valid number between 1 and 365'
+            });
+            return;
+        }
+
+        console.log(`📋 Getting policy expiry reminders for agent: ${agentId}, daysAhead: ${daysAhead}`);
+        const policyReminders: PolicyExpiryReminder[] = await this.reminderService.getPolicyExpiryReminders(agentId, daysAhead);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Policy expiry reminders retrieved successfully',
+            data: policyReminders,
+            count: policyReminders.length,
+            daysAhead: daysAhead
+        });
+        
+    } catch (error: unknown) {
+        console.error('❌ Controller: Error getting policy expiry reminders:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        
+        res.status(500).json({
+            success: false,
+            message: 'Failed to retrieve policy expiry reminders',
+            error: errorMessage
+        });
+    }
+};
     /** Validate phone number */
     public validatePhoneNumber = async (req: Request, res: Response): Promise<void> => {
         try {

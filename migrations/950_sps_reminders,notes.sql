@@ -332,7 +332,10 @@ $$ LANGUAGE plpgsql;
 -- ===========================================================
 -- Get Today's Reminders
 -- ===========================================================
-CREATE OR REPLACE FUNCTION sp_get_today_reminders(p_agent_id UUID)
+
+
+-- Create a new stored procedure with a different name to avoid conflicts
+CREATE OR REPLACE FUNCTION sp_get_today_reminders_v2(p_agent_id UUID) 
 RETURNS TABLE (
     reminder_id UUID,
     client_id UUID,
@@ -358,8 +361,8 @@ RETURNS TABLE (
     completed_date TIMESTAMPTZ,
     client_phone VARCHAR(20),
     client_email VARCHAR(100),
-    full_client_name VARCHAR(300)
-) AS $$
+    full_client_name TEXT
+) AS $$ 
 BEGIN
     RETURN QUERY
     SELECT 
@@ -385,9 +388,13 @@ BEGIN
         r.created_date,
         r.modified_date,
         r.completed_date,
-        COALESCE(c.phone, '') AS client_phone,
-        COALESCE(c.email, '') AS client_email,
-        COALESCE(c.first_name || ' ' || c.last_name, r.client_name, '') AS full_client_name
+        COALESCE(c.phone_number, '')::VARCHAR(20) AS client_phone,
+        COALESCE(c.email, '')::VARCHAR(100) AS client_email,
+        COALESCE(
+            TRIM(c.first_name || ' ' || COALESCE(c.surname, '') || ' ' || c.last_name), 
+            r.client_name, 
+            ''
+        ) AS full_client_name
     FROM reminders r
     LEFT JOIN clients c ON r.client_id = c.client_id
     WHERE 
@@ -395,7 +402,67 @@ BEGIN
         AND r.status = 'Active'
         AND r.reminder_date = CURRENT_DATE
     ORDER BY r.reminder_time ASC NULLS LAST;
-END;
+END; 
+$$ LANGUAGE plpgsql;
+
+-- Alternative: Direct table query approach (most reliable)
+CREATE OR REPLACE FUNCTION sp_get_today_reminders_direct(p_agent_id UUID) 
+RETURNS TABLE (
+    reminder_id UUID,
+    client_id UUID,
+    appointment_id UUID,
+    agent_id UUID,
+    reminder_type VARCHAR(50),
+    title VARCHAR(200),
+    description TEXT,
+    reminder_date DATE,
+    reminder_time TIME,
+    client_name VARCHAR(150),
+    priority VARCHAR(10),
+    status VARCHAR(20),
+    enable_sms BOOLEAN,
+    enable_whatsapp BOOLEAN,
+    enable_push_notification BOOLEAN,
+    advance_notice VARCHAR(20),
+    custom_message TEXT,
+    auto_send BOOLEAN,
+    notes TEXT,
+    created_date TIMESTAMPTZ,
+    modified_date TIMESTAMPTZ,
+    completed_date TIMESTAMPTZ
+) AS $$ 
+BEGIN
+    RETURN QUERY
+    SELECT 
+        r.reminder_id,
+        r.client_id,
+        r.appointment_id,
+        r.agent_id,
+        r.reminder_type,
+        r.title,
+        r.description,
+        r.reminder_date,
+        r.reminder_time,
+        r.client_name,
+        r.priority,
+        r.status,
+        r.enable_sms,
+        r.enable_whatsapp,
+        r.enable_push_notification,
+        r.advance_notice,
+        r.custom_message,
+        r.auto_send,
+        r.notes,
+        r.created_date,
+        r.modified_date,
+        r.completed_date
+    FROM reminders r
+    WHERE 
+        r.agent_id = p_agent_id 
+        AND r.status = 'Active'
+        AND r.reminder_date = CURRENT_DATE
+    ORDER BY r.reminder_time ASC NULLS LAST;
+END; 
 $$ LANGUAGE plpgsql;
 
 -- ===========================================================
@@ -1133,45 +1200,71 @@ $$ LANGUAGE plpgsql;
 -- ===========================================================
 -- Get Today's Birthday Reminders
 -- ===========================================================
-CREATE OR REPLACE FUNCTION sp_get_today_birthday_reminders(p_agent_id UUID)
+CREATE OR REPLACE FUNCTION sp_get_today_reminders(p_agent_id UUID) 
 RETURNS TABLE (
+    reminder_id UUID,
     client_id UUID,
-    first_name VARCHAR(50),
-    last_name VARCHAR(50),
-    phone VARCHAR(20),
-    email VARCHAR(100),
-    date_of_birth DATE,
-    age INTEGER
-) AS $$
+    appointment_id UUID,
+    agent_id UUID,
+    reminder_type VARCHAR(50),
+    title VARCHAR(200),
+    description TEXT,
+    reminder_date DATE,
+    reminder_time TIME,
+    client_name VARCHAR(150),
+    priority VARCHAR(10),
+    status VARCHAR(20),
+    enable_sms BOOLEAN,
+    enable_whatsapp BOOLEAN,
+    enable_push_notification BOOLEAN,
+    advance_notice VARCHAR(20),
+    custom_message TEXT,
+    auto_send BOOLEAN,
+    notes TEXT,
+    created_date TIMESTAMPTZ,
+    modified_date TIMESTAMPTZ,
+    completed_date TIMESTAMPTZ,
+    client_phone VARCHAR(20),
+    client_email VARCHAR(100),
+    full_client_name VARCHAR(300)
+) AS $$ 
 BEGIN
     RETURN QUERY
     SELECT 
-        c.client_id,
-        c.first_name,
-        c.last_name,
-        c.phone,
-        c.email,
-        c.date_of_birth,
-        (EXTRACT(YEAR FROM CURRENT_DATE) - EXTRACT(YEAR FROM c.date_of_birth))::INTEGER AS age
-    FROM clients c
+        r.reminder_id,
+        r.client_id,
+        r.appointment_id,
+        r.agent_id,
+        r.reminder_type,
+        r.title,
+        r.description,
+        r.reminder_date,
+        r.reminder_time,
+        r.client_name,
+        r.priority,
+        r.status,
+        r.enable_sms,
+        r.enable_whatsapp,
+        r.enable_push_notification,
+        r.advance_notice,
+        r.custom_message,
+        r.auto_send,
+        r.notes,
+        r.created_date,
+        r.modified_date,
+        r.completed_date,
+        COALESCE(c.phone_number, '') AS client_phone,  -- FIXED: Using phone_number
+        COALESCE(c.email, '') AS client_email,
+        COALESCE(c.first_name || ' ' || c.surname || ' ' || c.last_name, r.client_name, '') AS full_client_name  -- FIXED: Using all three name fields
+    FROM reminders r
+    LEFT JOIN clients c ON r.client_id = c.client_id
     WHERE 
-        c.agent_id = p_agent_id 
-        AND c.is_active = TRUE
-        AND (
-            -- adjust for Feb 29: if client born on Feb 29 and current year not leap, use Feb 28
-            (
-                CASE
-                    WHEN EXTRACT(MONTH FROM c.date_of_birth)::INT = 2
-                         AND EXTRACT(DAY FROM c.date_of_birth)::INT = 29
-                         AND NOT ( (EXTRACT(YEAR FROM CURRENT_DATE)::INT % 400 = 0) OR (EXTRACT(YEAR FROM CURRENT_DATE)::INT % 4 = 0 AND EXTRACT(YEAR FROM CURRENT_DATE)::INT % 100 != 0) )
-                    THEN to_char(make_date(EXTRACT(YEAR FROM CURRENT_DATE)::INT, 2, 28), 'MM-DD')
-                    ELSE to_char(make_date(EXTRACT(YEAR FROM CURRENT_DATE)::INT, EXTRACT(MONTH FROM c.date_of_birth)::INT, EXTRACT(DAY FROM c.date_of_birth)::INT), 'MM-DD')
-                END
-            ) = to_char(CURRENT_DATE, 'MM-DD')
-        );
-END;
+        r.agent_id = p_agent_id 
+        AND r.status = 'Active'
+        AND r.reminder_date = CURRENT_DATE
+    ORDER BY r.reminder_time ASC NULLS LAST;
+END; 
 $$ LANGUAGE plpgsql;
-
 
 -- ===========================================================
 -- Get Policy Expiry Reminders
@@ -1179,7 +1272,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION sp_get_policy_expiry_reminders(
     p_agent_id UUID,
     p_days_ahead INTEGER DEFAULT 30
-)
+) 
 RETURNS TABLE (
     policy_id UUID,
     client_id UUID,
@@ -1192,7 +1285,7 @@ RETURNS TABLE (
     phone VARCHAR(20),
     email VARCHAR(100),
     days_until_expiry INTEGER
-) AS $$
+) AS $$ 
 DECLARE
     v_start_date DATE := CURRENT_DATE;
     v_end_date DATE := CURRENT_DATE + (p_days_ahead * INTERVAL '1 day');
@@ -1202,16 +1295,18 @@ BEGIN
         cp.policy_id,
         cp.client_id,
         cp.policy_name,
-        cp.policy_type,
-        cp.company_name,
+        pt.type_name AS policy_type,  -- FIXED: Get from policy_types table
+        ic.company_name,              -- FIXED: Get from insurance_companies table
         cp.end_date,
         c.first_name,
         c.last_name,
-        c.phone,
+        c.phone_number AS phone,      -- FIXED: Using phone_number from schema
         c.email,
         (cp.end_date - v_start_date)::INTEGER AS days_until_expiry
     FROM client_policies cp
     INNER JOIN clients c ON cp.client_id = c.client_id
+    LEFT JOIN policy_types pt ON cp.type_id = pt.type_id
+    LEFT JOIN insurance_companies ic ON cp.company_id = ic.company_id
     WHERE 
         c.agent_id = p_agent_id 
         AND cp.status = 'Active'
@@ -1219,9 +1314,8 @@ BEGIN
         AND c.is_active = TRUE
         AND cp.end_date BETWEEN v_start_date AND v_end_date
     ORDER BY cp.end_date ASC;
-END;
+END; 
 $$ LANGUAGE plpgsql;
-
 
 -- ===========================================================
 -- Validate Phone Number Format

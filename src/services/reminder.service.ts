@@ -336,21 +336,102 @@ public async getAllReminders(agentId: string, filters: ReminderFilters = {}): Pr
     }
 
     /** Get today's reminders */
-    public async getTodayReminders(agentId: string): Promise<Reminder[]> {
-        const pool = await poolPromise as Pool;
-        const client = await pool.connect();
-        
+/** Get today's reminders - Using new safe stored procedure */
+public async getTodayReminders(agentId: string): Promise<Reminder[]> {
+    const pool = await poolPromise as Pool;
+    const client = await pool.connect();
+    
+    try {
+        // Option 1: Try the new stored procedure with computed fields
         try {
             const query = `
-                SELECT * FROM sp_get_today_reminders($1::uuid)
+                SELECT 
+                    reminder_id,
+                    client_id,
+                    appointment_id,
+                    agent_id,
+                    reminder_type,
+                    title,
+                    description,
+                    reminder_date,
+                    reminder_time,
+                    client_name,
+                    priority,
+                    status,
+                    enable_sms,
+                    enable_whatsapp,
+                    enable_push_notification,
+                    advance_notice,
+                    custom_message,
+                    auto_send,
+                    notes,
+                    created_date,
+                    modified_date,
+                    completed_date,
+                    client_phone,
+                    client_email,
+                    full_client_name
+                FROM sp_get_today_reminders_v2($1::uuid)
             `;
             
             const result = await client.query(query, [agentId]);
             return result.rows.map(row => this.mapDatabaseRowToReminder(row));
-        } finally {
-            client.release();
+            
+        } catch (spError) {
+            console.warn('⚠️ V2 stored procedure failed, trying direct approach:', spError);
+            
+            // Option 2: Use the direct table query stored procedure
+            const directQuery = `
+                SELECT 
+                    reminder_id,
+                    client_id,
+                    appointment_id,
+                    agent_id,
+                    reminder_type,
+                    title,
+                    description,
+                    reminder_date,
+                    reminder_time,
+                    client_name,
+                    priority,
+                    status,
+                    enable_sms,
+                    enable_whatsapp,
+                    enable_push_notification,
+                    advance_notice,
+                    custom_message,
+                    auto_send,
+                    notes,
+                    created_date,
+                    modified_date,
+                    completed_date
+                FROM sp_get_today_reminders_direct($1::uuid)
+            `;
+            
+            const directResult = await client.query(directQuery, [agentId]);
+            
+            // Get client info separately for the computed fields
+            return directResult.rows.map(row => {
+                const mappedReminder = this.mapDatabaseRowToReminder(row);
+                // Add empty computed fields for now
+                return {
+                    ...mappedReminder,
+                    client_phone: '',
+                    client_email: '',
+                    full_client_name: row.client_name || ''
+                };
+            });
         }
+        
+    } catch (error) {
+        console.error('❌ Error in getTodayReminders:', error);
+        throw error;
+    } finally {
+        client.release();
     }
+}
+
+
 
     /** Get reminder settings - FIXED mapping */
     public async getReminderSettings(agentId: string): Promise<ReminderSettings[]> {
@@ -481,59 +562,80 @@ public async getAllReminders(agentId: string, filters: ReminderFilters = {}): Pr
     }
 
     /** Get birthday reminders - FIXED mapping */
-    public async getBirthdayReminders(agentId: string): Promise<BirthdayReminder[]> {
-        const pool = await poolPromise as Pool;
-        const client = await pool.connect();
+   /** Get birthday reminders - UPDATED to match SP return type */
+public async getBirthdayReminders(agentId: string): Promise<BirthdayReminder[]> {
+    const pool = await poolPromise as Pool;
+    const client = await pool.connect();
+    
+    try {
+        const query = `
+            SELECT 
+                client_id,
+                first_name,
+                last_name,
+                phone,
+                email,
+                date_of_birth,
+                age
+            FROM sp_get_today_birthday_reminders($1::uuid)
+        `;
         
-        try {
-            const query = `
-                SELECT * FROM sp_get_today_birthday_reminders($1::uuid)
-            `;
-            
-            const result = await client.query(query, [agentId]);
-            return result.rows.map(row => ({
-                ClientId: row.client_id,
-                FirstName: row.first_name,
-                Surname: row.last_name,
-                LastName: row.last_name, // Frontend expects both Surname and LastName
-                PhoneNumber: row.phone,
-                Email: row.email,
-                DateOfBirth: this.formatDateToISOString(row.date_of_birth),
-                Age: row.age
-            }));
-        } finally {
-            client.release();
-        }
+        const result = await client.query(query, [agentId]);
+        return result.rows.map(row => ({
+            ClientId: row.client_id,
+            FirstName: row.first_name,
+            Surname: row.last_name,  // Using last_name for Surname
+            LastName: row.last_name, // Frontend expects both Surname and LastName
+            PhoneNumber: row.phone,
+            Email: row.email,
+            DateOfBirth: this.formatDateToISOString(row.date_of_birth),
+            Age: row.age
+        }));
+    } finally {
+        client.release();
     }
+}
 
-    /** Get policy expiry reminders - FIXED mapping */
-    public async getPolicyExpiryReminders(agentId: string, daysAhead: number = 30): Promise<PolicyExpiryReminder[]> {
-        const pool = await poolPromise as Pool;
-        const client = await pool.connect();
+/** Get policy expiry reminders - UPDATED to match SP return type */
+public async getPolicyExpiryReminders(agentId: string, daysAhead: number = 30): Promise<PolicyExpiryReminder[]> {
+    const pool = await poolPromise as Pool;
+    const client = await pool.connect();
+    
+    try {
+        const query = `
+            SELECT 
+                policy_id,
+                client_id,
+                policy_name,
+                policy_type,
+                company_name,
+                end_date,
+                first_name,
+                last_name,
+                phone,
+                email,
+                days_until_expiry
+            FROM sp_get_policy_expiry_reminders($1::uuid, $2::integer)
+        `;
         
-        try {
-            const query = `
-                SELECT * FROM sp_get_policy_expiry_reminders($1::uuid, $2::integer)
-            `;
-            
-            const result = await client.query(query, [agentId, daysAhead]);
-            return result.rows.map(row => ({
-                PolicyId: row.policy_id,
-                ClientId: row.client_id,
-                PolicyName: row.policy_name,
-                PolicyType: row.policy_type,
-                CompanyName: row.company_name,
-                EndDate: this.formatDateToISOString(row.end_date),
-                FirstName: row.first_name,
-                Surname: row.last_name,
-                PhoneNumber: row.phone,
-                Email: row.email,
-                DaysUntilExpiry: row.days_until_expiry
-            }));
-        } finally {
-            client.release();
-        }
+        const result = await client.query(query, [agentId, daysAhead]);
+        return result.rows.map(row => ({
+            PolicyId: row.policy_id,
+            ClientId: row.client_id,
+            PolicyName: row.policy_name,
+            PolicyType: row.policy_type,
+            CompanyName: row.company_name,
+            EndDate: this.formatDateToISOString(row.end_date),
+            FirstName: row.first_name,
+            Surname: row.last_name,  // Using last_name for Surname
+            PhoneNumber: row.phone,
+            Email: row.email,
+            DaysUntilExpiry: row.days_until_expiry
+        }));
+    } finally {
+        client.release();
     }
+}
 
     /** Validate phone number */
     public async validatePhoneNumber(phoneNumber: string, countryCode: string = '+254'): Promise<PhoneValidationResult> {

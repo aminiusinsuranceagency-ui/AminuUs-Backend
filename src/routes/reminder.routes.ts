@@ -1,5 +1,5 @@
 // =============================================
-// UPDATED REMINDERS ROUTES - reminders.routes.ts
+// FIXED REMINDERS ROUTES - reminders.routes.ts
 // =============================================
 
 import { Router } from 'express';
@@ -10,65 +10,79 @@ const controller = new RemindersController();
 
 /**
  * =====================
- * SPECIFIC ROUTES FIRST (to avoid conflicts with parameterized routes)
+ * AGENT-SPECIFIC ROUTES (with agentId parameter)
  * =====================
  */
 
-// Statistics route - must come before /:reminderId
-router.get('/statistics', controller.getReminderStatistics);
+// Statistics route for specific agent
+router.get('/:agentId/statistics', controller.getReminderStatistics);
 
-// Settings routes - must come before /:reminderId
-router.get('/settings', controller.getReminderSettings);
-router.put('/settings', controller.updateReminderSettings);
+// Settings routes for specific agent
+router.get('/:agentId/settings', controller.getReminderSettings);
+router.put('/:agentId/settings', controller.updateReminderSettings);
 
-// Today's reminders - specific route
-router.get('/today', controller.getTodayReminders);
+// Today's reminders for specific agent
+router.get('/:agentId/today', controller.getTodayReminders);
 
-// Birthday reminders route
-router.get('/birthdays', controller.getBirthdayReminders);
+// Birthday reminders for specific agent
+router.get('/:agentId/birthdays', controller.getBirthdayReminders);
 
-// Policy expiry reminders route
-router.get('/policy-expiries', controller.getPolicyExpiryReminders);
+// Policy expiry reminders for specific agent
+router.get('/:agentId/policy-expiries', controller.getPolicyExpiryReminders);
 
-// Phone validation route
-router.post('/validate-phone', controller.validatePhoneNumber);
+// Filter routes for specific agent
+router.get('/:agentId/type/:reminderType', controller.getRemindersByType);
+router.get('/:agentId/status/:status', controller.getRemindersByStatus);
 
-// Filter routes - must come before /:reminderId
-router.get('/type/:reminderType', controller.getRemindersByType);
-router.get('/status/:status', controller.getRemindersByStatus);
+// Create reminder for specific agent
+router.post('/:agentId', controller.createReminder);
+
+// Get all reminders for specific agent (THIS WAS THE MISSING ROUTE!)
+router.get('/:agentId', controller.getAllReminders);
+
+// Complete reminder - specific action
+router.post('/:agentId/:reminderId/complete', controller.completeReminder);
+
+// Individual reminder CRUD for specific agent
+router.get('/:agentId/:reminderId', controller.getReminderById);
+router.put('/:agentId/:reminderId', controller.updateReminder);
+router.delete('/:agentId/:reminderId', controller.deleteReminder);
 
 /**
  * =====================
- * Reminder CRUD (General parameterized routes come AFTER specific ones)
+ * GLOBAL ROUTES (without agentId - for header-based authentication)
  * =====================
  */
 
-// Create reminder
+// Phone validation route (global utility)
+router.post('/validate-phone', controller.validatePhoneNumber);
+
+// Fallback routes that use x-agent-id header instead of URL parameter
+router.get('/statistics', controller.getReminderStatistics);
+router.get('/settings', controller.getReminderSettings);
+router.put('/settings', controller.updateReminderSettings);
+router.get('/today', controller.getTodayReminders);
+router.get('/birthdays', controller.getBirthdayReminders);
+router.get('/policy-expiries', controller.getPolicyExpiryReminders);
+router.get('/type/:reminderType', controller.getRemindersByType);
+router.get('/status/:status', controller.getRemindersByStatus);
 router.post('/', controller.createReminder);
-
-// Get all reminders (this is safe as it doesn't have additional params)
 router.get('/', controller.getAllReminders);
-
-// Complete reminder - specific action before general /:reminderId route
 router.post('/:reminderId/complete', controller.completeReminder);
-
-// Individual reminder CRUD - THESE MUST COME LAST due to the parameterized nature
 router.get('/:reminderId', controller.getReminderById);
 router.put('/:reminderId', controller.updateReminder);
 router.delete('/:reminderId', controller.deleteReminder);
 
 /**
  * =====================
- * Middleware for request logging (optional)
+ * Debugging middleware
  * =====================
  */
-
-// Log all reminder routes for debugging
 router.use((req, res, next) => {
     console.log(`🛣️ Reminder Route: ${req.method} ${req.originalUrl}`);
-    console.log(`🛣️ Headers:`, req.headers);
     console.log(`🛣️ Params:`, req.params);
     console.log(`🛣️ Query:`, req.query);
+    console.log(`🛣️ Headers x-agent-id:`, req.headers['x-agent-id']);
     next();
 });
 
