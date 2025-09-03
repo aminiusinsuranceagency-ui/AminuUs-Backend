@@ -1,86 +1,141 @@
-
-// =============================================
-// UPDATED HTTP REST CLIENT - reminders.http
-// =============================================
+# =============================================
+# REMINDERS HTTP REST CLIENT
+# Fully aligned with routes/reminder.routes.ts
+# =============================================
 
 ### Variables
 @baseUrl = http://localhost:3000/api/reminders
 @agentId = 7b407c2d-3145-40b0-8c47-1d6f62351b2c
 @testReminderId = e5f94403-0ced-418a-b873-4f1b9b956d5a
 
-### Create Reminder
+# =============================================
+# CORE REMINDER ROUTES
+# =============================================
+
+### Create Reminder (Header-based agentId)
 POST {{baseUrl}}
 Content-Type: application/json
 x-agent-id: {{agentId}}
 
 {
-    "ReminderType": "Call",
-    "Title": " call with client",
-    "Description": "Call about policy clarification",
-    "ReminderDate": "2025-09-15",
-    "ReminderTime": "16:30:00",
-    "Priority": "High",
-    "ClientName": "John Doe",
-    "EnableSMS": true,
-    "EnableWhatsApp": false,
-    "EnablePushNotification": true,
-    "AdvanceNotice": "1 day",
-    "CustomMessage": "Remember to call John about his policy",
-    "AutoSend": false,
-    "Notes": "Important client call"
+  "ReminderType": "Call",
+  "Title": "Call with client",
+  "Description": "Call about policy clarification",
+  "ReminderDate": "2025-09-15",
+  "ReminderTime": "18:30:00",
+  "Priority": "High",
+  "ClientName": "John Doe",
+  "EnableSMS": true,
+  "EnableWhatsApp": false,
+  "EnablePushNotification": true,
+  "AdvanceNotice": "1 day",
+  "CustomMessage": "Remember to call John about his policy",
+  "AutoSend": false,
+  "Notes": "Important client call"
 }
 
-### Get All Reminders
-GET {{baseUrl}}?PageSize=10&PageNumber=1
-x-agent-id: {{agentId}}
+### Get All Reminders (Agent param style)
+GET {{baseUrl}}/agent/{{agentId}}?pageSize=10&pageNumber=1
 
 ### Get All Reminders with Filters
-GET {{baseUrl}}?PageSize=10&PageNumber=1&reminderType=Call&status=Active&priority=High&startDate=2025-09-01&endDate=2025-09-30
-x-agent-id: {{agentId}}
+GET {{baseUrl}}/agent/{{agentId}}?pageSize=10&pageNumber=1&reminderType=Call&status=Active&priority=High&startDate=2025-09-01&endDate=2025-09-30
 
-### Get Reminder by ID
+### Get Reminder by ID (Agent param style)
+GET {{baseUrl}}/agent/{{agentId}}/reminder/{{testReminderId}}
+
+### Get Reminder by ID (Legacy header style)
 GET {{baseUrl}}/{{testReminderId}}
 x-agent-id: {{agentId}}
 
-### Update Reminder
-PUT {{baseUrl}}/{{testReminderId}}
+### Update Reminder (Agent param style)
+PUT {{baseUrl}}/agent/{{agentId}}/reminder/{{testReminderId}}
 Content-Type: application/json
-x-agent-id: {{agentId}}
 
 {
-    "Title": "Updated Follow up call",
-    "Priority": "Medium",
-    "Status": "Active",
-    "Notes": "Updated notes for the reminder"
+  "Title": "Updated Follow up call",
+  "Priority": "Medium",
+  "Status": "Active",
+  "Notes": "Updated notes for the reminder"
 }
 
-### Delete Reminder
-DELETE {{baseUrl}}/{{testReminderId}}
-x-agent-id: {{agentId}}
+### Delete Reminder (Agent param style)
+DELETE {{baseUrl}}/agent/{{agentId}}/reminder/{{testReminderId}}
 
-### Complete Reminder
-POST {{baseUrl}}/{{testReminderId}}/complete
+### Complete Reminder (Agent param style)
+POST {{baseUrl}}/agent/{{agentId}}/reminder/{{testReminderId}}/complete
 Content-Type: application/json
-x-agent-id: {{agentId}}
 
 {
-    "notes": "Successfully completed the call with client"
+  "notes": "Successfully completed the call with client"
 }
+
+# =============================================
+# SPECIALIZED REMINDER ROUTES
+# =============================================
+
+### Get Today's Reminders
+GET {{baseUrl}}/agent/{{agentId}}/today
+
+### Get Reminders by Type (Call)
+GET {{baseUrl}}/agent/{{agentId}}/type/Call
+
+### Get Reminders by Status (Completed)
+GET {{baseUrl}}/agent/{{agentId}}/status/Completed
+
+### Get Birthday Reminders
+GET {{baseUrl}}/agent/{{agentId}}/birthdays
+
+### Get Policy Expiry Reminders (default 30 days)
+GET {{baseUrl}}/agent/{{agentId}}/policy-expiry
+
+### Get Policy Expiry Reminders (15 days ahead)
+GET {{baseUrl}}/agent/{{agentId}}/policy-expiry?daysAhead=15
+
+# =============================================
+# STATISTICS + SETTINGS
+# =============================================
+
+### Get Reminder Statistics
+GET {{baseUrl}}/agent/{{agentId}}/statistics
+
+### Get Reminder Settings
+GET {{baseUrl}}/agent/{{agentId}}/settings
+
+### Update Reminder Settings
+PUT {{baseUrl}}/agent/{{agentId}}/settings
+Content-Type: application/json
+
+{
+  "ReminderType": "Birthday",
+  "IsEnabled": true,
+  "DaysBefore": 3,
+  "TimeOfDay": "09:00:00",
+  "RepeatDaily": false
+}
+
+# =============================================
+# UTILITY ROUTES
+# =============================================
+
+### Validate Phone Number
+POST {{baseUrl}}/validate-phone
+Content-Type: application/json
+
+{
+  "phoneNumber": "0712345678",
+  "countryCode": "+254"
+}
+
+# =============================================
+# BACKWARD COMPATIBILITY ROUTES (header-based)
+# =============================================
 
 ### Get Today's Reminders
 GET {{baseUrl}}/today
 x-agent-id: {{agentId}}
 
-### Get Birthday Reminders
-GET {{baseUrl}}/birthdays
-x-agent-id: {{agentId}}
-
-### Get Policy Expiry Reminders
-GET {{baseUrl}}/policy-expiries?daysAhead=30
-x-agent-id: {{agentId}}
-
-### Get Policy Expiry Reminders (15 days ahead)
-GET {{baseUrl}}/policy-expiries?daysAhead=15
+### Get Reminder Statistics
+GET {{baseUrl}}/statistics
 x-agent-id: {{agentId}}
 
 ### Get Reminder Settings
@@ -93,141 +148,9 @@ Content-Type: application/json
 x-agent-id: {{agentId}}
 
 {
-    "ReminderType": "Birthday",
-    "IsEnabled": true,
-    "DaysBefore": 3,
-    "TimeOfDay": "09:00:00",
-    "RepeatDaily": false
-}
-
-### Get Reminder Statistics
-GET {{baseUrl}}/statistics
-x-agent-id: {{agentId}}
-
-### Validate Phone Number
-POST {{baseUrl}}/validate-phone
-Content-Type: application/json
-x-agent-id: {{agentId}}
-
-{
-    "phoneNumber": "0712345678",
-    "countryCode": "+254"
-}
-
-### Get Reminders by Type - Call
-GET {{baseUrl}}/type/Call
-x-agent-id: {{agentId}}
-
-### Get Reminders by Type - Visit
-GET {{baseUrl}}/type/Visit
-x-agent-id: {{agentId}}
-
-### Get Reminders by Type - Policy Expiry
-GET {{baseUrl}}/type/Policy%20Expiry
-x-agent-id: {{agentId}}
-
-### Get Reminders by Type - Birthday
-GET {{baseUrl}}/type/Birthday
-x-agent-id: {{agentId}}
-
-### Get Reminders by Type - Appointment
-GET {{baseUrl}}/type/Appointment
-x-agent-id: {{agentId}}
-
-### Get Reminders by Status - Active
-GET {{baseUrl}}/status/Active
-x-agent-id: {{agentId}}
-
-### Get Reminders by Status - Completed
-GET {{baseUrl}}/status/Completed
-x-agent-id: {{agentId}}
-
-### Get Reminders by Status - Cancelled
-GET {{baseUrl}}/status/Cancelled
-x-agent-id: {{agentId}}
-
-### Create Birthday Reminder
-POST {{baseUrl}}
-Content-Type: application/json
-x-agent-id: {{agentId}}
-
-{
-    "ReminderType": "Birthday",
-    "Title": "Client Birthday - Sarah Johnson",
-    "Description": "Send birthday wishes and follow up",
-    "ReminderDate": "2025-09-20",
-    "ReminderTime": "10:00:00",
-    "Priority": "Medium",
-    "ClientName": "Sarah Johnson",
-    "EnableSMS": true,
-    "EnableWhatsApp": true,
-    "EnablePushNotification": true,
-    "AdvanceNotice": "2 days",
-    "CustomMessage": "Happy Birthday! Hope you have a wonderful day.",
-    "AutoSend": true
-}
-
-### Create Policy Expiry Reminder
-POST {{baseUrl}}
-Content-Type: application/json
-x-agent-id: {{agentId}}
-
-{
-    "ReminderType": "Policy Expiry",
-    "Title": "Policy Expiring - Auto Insurance",
-    "Description": "Contact client about policy renewal",
-    "ReminderDate": "2025-09-25",
-    "ReminderTime": "09:00:00",
-    "Priority": "High",
-    "ClientName": "Mike Wilson",
-    "EnableSMS": true,
-    "EnableWhatsApp": false,
-    "EnablePushNotification": true,
-    "AdvanceNotice": "7 days",
-    "CustomMessage": "Your auto insurance policy is expiring soon. Please contact us to renew.",
-    "AutoSend": false,
-    "Notes": "Critical renewal - high value client"
-}
-
-### Create Appointment Reminder
-POST {{baseUrl}}
-Content-Type: application/json
-x-agent-id: {{agentId}}
-
-{
-    "ReminderType": "Appointment",
-    "Title": "Client Meeting - Policy Review",
-    "Description": "Annual policy review meeting",
-    "ReminderDate": "2025-09-18",
-    "ReminderTime": "15:30:00",
-    "Priority": "High",
-    "ClientName": "Robert Brown",
-    "EnableSMS": true,
-    "EnableWhatsApp": true,
-    "EnablePushNotification": true,
-    "AdvanceNotice": "1 day",
-    "CustomMessage": "Reminder: You have an appointment tomorrow at 3:30 PM for your policy review.",
-    "AutoSend": true,
-    "Notes": "Prepare policy documents and renewal options"
-}
-
-### Create Custom Reminder
-POST {{baseUrl}}
-Content-Type: application/json
-x-agent-id: {{agentId}}
-
-{
-    "ReminderType": "Custom",
-    "Title": "Send Monthly Newsletter",
-    "Description": "Prepare and send monthly insurance newsletter to all clients",
-    "ReminderDate": "2025-09-30",
-    "ReminderTime": "11:00:00",
-    "Priority": "Low",
-    "EnableSMS": false,
-    "EnableWhatsApp": false,
-    "EnablePushNotification": true,
-    "AdvanceNotice": "1 day",
-    "CustomMessage": "Time to prepare the monthly newsletter",
-    "AutoSend": false,
-    "Notes": "Include updates on new policies and industry news"
+  "ReminderType": "Birthday",
+  "IsEnabled": true,
+  "DaysBefore": 3,
+  "TimeOfDay": "09:00:00",
+  "RepeatDaily": false
 }

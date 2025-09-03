@@ -1,8 +1,6 @@
-// =============================================
-// UPDATED BACKEND SERVICE - reminders.service.ts
-// =============================================
-
 import { Pool } from 'pg';
+import { validate as uuidValidate } from 'uuid';
+
 import { poolPromise } from '../../db';
 import {
     Reminder,
@@ -26,11 +24,19 @@ export interface ReminderStatistics {
 }
 
 export class ReminderService {
-    /** Create a new reminder */
+    private isValidUUID(uuid: string): boolean {
+        return uuidValidate(uuid);
+    }
+    /** Create a new reminder - FIXED to return proper structure */
     public async createReminder(agentId: string, reminderData: CreateReminderRequest): Promise<{ ReminderId: string }> {
         console.log('📝 Backend: Creating reminder with raw data:', reminderData);
         
         try {
+            // Validate agentId
+            if (!agentId || !this.isValidUUID(agentId)) {
+                throw new Error('Valid Agent ID is required');
+            }
+
             let validatedTime: string | null = null;
             
             if (reminderData.ReminderTime) {
@@ -91,8 +97,13 @@ export class ReminderService {
         }
     }
 
-    /** Get all reminders with filters and pagination */
-public async getAllReminders(agentId: string, filters: ReminderFilters = {}): Promise<PaginatedReminderResponse> {
+    /** Get all reminders with filters and pagination - FIXED response format */
+    public async getAllReminders(agentId: string, filters: ReminderFilters = {}): Promise<PaginatedReminderResponse> {
+        // Validate agentId
+        if (!agentId || !this.isValidUUID(agentId)) {
+            throw new Error('Valid Agent ID is required');
+        }
+
         const pool = await poolPromise as Pool;
         const client = await pool.connect();
         
@@ -111,7 +122,6 @@ public async getAllReminders(agentId: string, filters: ReminderFilters = {}): Pr
             let values: any[];
 
             if (hasFilters) {
-                // Use filtered function when filters are applied
                 query = `
                     SELECT * FROM sp_get_all_reminders_with_filters(
                         $1::uuid, $2::varchar, $3::varchar, $4::varchar, 
@@ -131,7 +141,6 @@ public async getAllReminders(agentId: string, filters: ReminderFilters = {}): Pr
                     filters.PageSize || 20
                 ];
             } else {
-                // Use simple function when no filters
                 query = `
                     SELECT * FROM sp_get_all_reminders(
                         $1::uuid, $2::date, $3::date, $4::integer, $5::integer
@@ -160,36 +169,11 @@ public async getAllReminders(agentId: string, filters: ReminderFilters = {}): Pr
 
             let totalRecords = 0;
             if (hasFilters && result.rows.length > 0) {
-                // Get total records from the filtered function result
                 totalRecords = parseInt(result.rows[0].total_records) || 0;
             } else if (!hasFilters) {
-                // Get total count for non-filtered results
+                // Simplified count query for non-filtered results
                 const countQuery = `
-                    WITH all_reminders_count AS (
-                        SELECT COUNT(*) as count FROM reminders WHERE agent_id = $1
-                        UNION ALL
-                        SELECT COUNT(*) FROM client_policies cp
-                        INNER JOIN clients c ON c.client_id = cp.client_id
-                        WHERE c.agent_id = $1 AND cp.is_active = TRUE 
-                        AND cp.end_date BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '30 days')
-                        UNION ALL
-                        SELECT COUNT(*) FROM clients c
-                        WHERE c.agent_id = $1 AND c.is_active = TRUE 
-                        AND c.date_of_birth IS NOT NULL
-                        AND (
-                            CASE
-                                WHEN EXTRACT(MONTH FROM c.date_of_birth)::INT = 2
-                                     AND EXTRACT(DAY FROM c.date_of_birth)::INT = 29
-                                     AND NOT ( (EXTRACT(YEAR FROM CURRENT_DATE)::INT % 400 = 0) OR (EXTRACT(YEAR FROM CURRENT_DATE)::INT % 4 = 0 AND EXTRACT(YEAR FROM CURRENT_DATE)::INT % 100 != 0) )
-                                THEN make_date(EXTRACT(YEAR FROM CURRENT_DATE)::INT, 2, 28)
-                                ELSE make_date(EXTRACT(YEAR FROM CURRENT_DATE)::INT, EXTRACT(MONTH FROM c.date_of_birth)::INT, EXTRACT(DAY FROM c.date_of_birth)::INT)
-                            END
-                        ) BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '7 days')
-                        UNION ALL
-                        SELECT COUNT(*) FROM appointments a
-                        WHERE a.agent_id = $1 AND a.is_active = TRUE
-                    )
-                    SELECT SUM(count) as total FROM all_reminders_count
+                    SELECT COUNT(*) as total FROM reminders WHERE agent_id = $1
                 `;
                 const countResult = await client.query(countQuery, [agentId]);
                 totalRecords = parseInt(countResult.rows[0]?.total) || 0;
@@ -224,6 +208,14 @@ public async getAllReminders(agentId: string, filters: ReminderFilters = {}): Pr
 
     /** Get reminder by ID - FIXED to match frontend expectations */
     public async getReminderById(reminderId: string, agentId: string): Promise<Reminder | null> {
+        // Validate inputs
+        if (!reminderId || !this.isValidUUID(reminderId)) {
+            throw new Error('Valid Reminder ID is required');
+        }
+        if (!agentId || !this.isValidUUID(agentId)) {
+            throw new Error('Valid Agent ID is required');
+        }
+
         const pool = await poolPromise as Pool;
         const client = await pool.connect();
         
@@ -258,6 +250,14 @@ public async getAllReminders(agentId: string, filters: ReminderFilters = {}): Pr
 
     /** Update a reminder */
     public async updateReminder(reminderId: string, agentId: string, updateData: UpdateReminderRequest): Promise<{ RowsAffected: number }> {
+        // Validate inputs
+        if (!reminderId || !this.isValidUUID(reminderId)) {
+            throw new Error('Valid Reminder ID is required');
+        }
+        if (!agentId || !this.isValidUUID(agentId)) {
+            throw new Error('Valid Agent ID is required');
+        }
+
         const pool = await poolPromise as Pool;
         const client = await pool.connect();
         
@@ -303,6 +303,14 @@ public async getAllReminders(agentId: string, filters: ReminderFilters = {}): Pr
 
     /** Delete a reminder */
     public async deleteReminder(reminderId: string, agentId: string): Promise<{ RowsAffected: number }> {
+        // Validate inputs
+        if (!reminderId || !this.isValidUUID(reminderId)) {
+            throw new Error('Valid Reminder ID is required');
+        }
+        if (!agentId || !this.isValidUUID(agentId)) {
+            throw new Error('Valid Agent ID is required');
+        }
+
         const pool = await poolPromise as Pool;
         const client = await pool.connect();
         
@@ -320,6 +328,14 @@ public async getAllReminders(agentId: string, filters: ReminderFilters = {}): Pr
 
     /** Complete a reminder */
     public async completeReminder(reminderId: string, agentId: string, notes?: string): Promise<{ RowsAffected: number }> {
+        // Validate inputs
+        if (!reminderId || !this.isValidUUID(reminderId)) {
+            throw new Error('Valid Reminder ID is required');
+        }
+        if (!agentId || !this.isValidUUID(agentId)) {
+            throw new Error('Valid Agent ID is required');
+        }
+
         const pool = await poolPromise as Pool;
         const client = await pool.connect();
         
@@ -335,106 +351,80 @@ public async getAllReminders(agentId: string, filters: ReminderFilters = {}): Pr
         }
     }
 
-    /** Get today's reminders */
-/** Get today's reminders - Using new safe stored procedure */
-public async getTodayReminders(agentId: string): Promise<Reminder[]> {
-    const pool = await poolPromise as Pool;
-    const client = await pool.connect();
-    
-    try {
-        // Option 1: Try the new stored procedure with computed fields
-        try {
-            const query = `
-                SELECT 
-                    reminder_id,
-                    client_id,
-                    appointment_id,
-                    agent_id,
-                    reminder_type,
-                    title,
-                    description,
-                    reminder_date,
-                    reminder_time,
-                    client_name,
-                    priority,
-                    status,
-                    enable_sms,
-                    enable_whatsapp,
-                    enable_push_notification,
-                    advance_notice,
-                    custom_message,
-                    auto_send,
-                    notes,
-                    created_date,
-                    modified_date,
-                    completed_date,
-                    client_phone,
-                    client_email,
-                    full_client_name
-                FROM sp_get_today_reminders_v2($1::uuid)
-            `;
-            
-            const result = await client.query(query, [agentId]);
-            return result.rows.map(row => this.mapDatabaseRowToReminder(row));
-            
-        } catch (spError) {
-            console.warn('⚠️ V2 stored procedure failed, trying direct approach:', spError);
-            
-            // Option 2: Use the direct table query stored procedure
-            const directQuery = `
-                SELECT 
-                    reminder_id,
-                    client_id,
-                    appointment_id,
-                    agent_id,
-                    reminder_type,
-                    title,
-                    description,
-                    reminder_date,
-                    reminder_time,
-                    client_name,
-                    priority,
-                    status,
-                    enable_sms,
-                    enable_whatsapp,
-                    enable_push_notification,
-                    advance_notice,
-                    custom_message,
-                    auto_send,
-                    notes,
-                    created_date,
-                    modified_date,
-                    completed_date
-                FROM sp_get_today_reminders_direct($1::uuid)
-            `;
-            
-            const directResult = await client.query(directQuery, [agentId]);
-            
-            // Get client info separately for the computed fields
-            return directResult.rows.map(row => {
-                const mappedReminder = this.mapDatabaseRowToReminder(row);
-                // Add empty computed fields for now
-                return {
-                    ...mappedReminder,
-                    client_phone: '',
-                    client_email: '',
-                    full_client_name: row.client_name || ''
-                };
-            });
+    /** Get today's reminders - FIXED with fallback approach */
+    public async getTodayReminders(agentId: string): Promise<Reminder[]> {
+        // Validate agentId
+        if (!agentId || !this.isValidUUID(agentId)) {
+            throw new Error('Valid Agent ID is required');
         }
+
+        const pool = await poolPromise as Pool;
+        const client = await pool.connect();
         
-    } catch (error) {
-        console.error('❌ Error in getTodayReminders:', error);
-        throw error;
-    } finally {
-        client.release();
+        try {
+            // Try the stored procedure first
+            try {
+                const query = `
+                    SELECT * FROM sp_get_today_reminders_direct($1::uuid)
+                `;
+                
+                const result = await client.query(query, [agentId]);
+                return result.rows.map(row => this.mapDatabaseRowToReminder(row));
+                
+            } catch (spError) {
+                console.warn('⚠️ Stored procedure failed, using fallback:', spError);
+                
+                // Fallback: Direct query for today's reminders
+                const fallbackQuery = `
+                    SELECT 
+                        reminder_id,
+                        client_id,
+                        appointment_id,
+                        agent_id,
+                        reminder_type,
+                        title,
+                        description,
+                        reminder_date,
+                        reminder_time,
+                        client_name,
+                        priority,
+                        status,
+                        enable_sms,
+                        enable_whatsapp,
+                        enable_push_notification,
+                        advance_notice,
+                        custom_message,
+                        auto_send,
+                        notes,
+                        created_date,
+                        modified_date,
+                        completed_date
+                    FROM reminders 
+                    WHERE agent_id = $1 
+                    AND reminder_date = CURRENT_DATE
+                    AND status = 'Active'
+                    ORDER BY reminder_time ASC NULLS LAST, created_date ASC
+                `;
+                
+                const fallbackResult = await client.query(fallbackQuery, [agentId]);
+                return fallbackResult.rows.map(row => this.mapDatabaseRowToReminder(row));
+            }
+            
+        } catch (error) {
+            console.error('❌ Error in getTodayReminders:', error);
+            throw error;
+        } finally {
+            client.release();
+        }
     }
-}
-
-
 
     /** Get reminder settings - FIXED mapping */
     public async getReminderSettings(agentId: string): Promise<ReminderSettings[]> {
+        // Validate agentId
+        if (!agentId || !this.isValidUUID(agentId)) {
+            throw new Error('Valid Agent ID is required');
+        }
+
         const pool = await poolPromise as Pool;
         const client = await pool.connect();
         
@@ -452,6 +442,11 @@ public async getTodayReminders(agentId: string): Promise<Reminder[]> {
 
     /** Update reminder settings - FIXED to accept ReminderSettings object */
     public async updateReminderSettings(agentId: string, settings: ReminderSettings): Promise<void> {
+        // Validate agentId
+        if (!agentId || !this.isValidUUID(agentId)) {
+            throw new Error('Valid Agent ID is required');
+        }
+
         const pool = await poolPromise as Pool;
         const client = await pool.connect();
         
@@ -475,8 +470,13 @@ public async getTodayReminders(agentId: string): Promise<Reminder[]> {
         }
     }
 
-    /** Get reminder statistics - FIXED return type */
+    /** Get reminder statistics - FIXED return type and error handling */
     public async getReminderStatistics(agentId: string): Promise<ReminderStatistics> {
+        // Validate agentId
+        if (!agentId || !this.isValidUUID(agentId)) {
+            throw new Error('Valid Agent ID is required');
+        }
+
         try {
             const pool = await poolPromise as Pool;
             const client = await pool.connect();
@@ -519,6 +519,14 @@ public async getTodayReminders(agentId: string): Promise<Reminder[]> {
 
     /** Get reminders filtered by ReminderType */
     async getRemindersByType(agentId: string, reminderType: string): Promise<Reminder[]> {
+        // Validate inputs
+        if (!agentId || !this.isValidUUID(agentId)) {
+            throw new Error('Valid Agent ID is required');
+        }
+        if (!reminderType) {
+            throw new Error('Reminder type is required');
+        }
+
         try {
             const pool = await poolPromise as Pool;
             const client = await pool.connect();
@@ -541,6 +549,14 @@ public async getTodayReminders(agentId: string): Promise<Reminder[]> {
 
     /** Get reminders filtered by Status */
     async getRemindersByStatus(agentId: string, status: string): Promise<Reminder[]> {
+        // Validate inputs
+        if (!agentId || !this.isValidUUID(agentId)) {
+            throw new Error('Valid Agent ID is required');
+        }
+        if (!status) {
+            throw new Error('Status is required');
+        }
+
         try {
             const pool = await poolPromise as Pool;
             const client = await pool.connect();
@@ -561,81 +577,94 @@ public async getTodayReminders(agentId: string): Promise<Reminder[]> {
         }
     }
 
-    /** Get birthday reminders - FIXED mapping */
-   /** Get birthday reminders - UPDATED to match SP return type */
-public async getBirthdayReminders(agentId: string): Promise<BirthdayReminder[]> {
-    const pool = await poolPromise as Pool;
-    const client = await pool.connect();
-    
-    try {
-        const query = `
-            SELECT 
-                client_id,
-                first_name,
-                last_name,
-                phone,
-                email,
-                date_of_birth,
-                age
-            FROM sp_get_today_birthday_reminders($1::uuid)
-        `;
-        
-        const result = await client.query(query, [agentId]);
-        return result.rows.map(row => ({
-            ClientId: row.client_id,
-            FirstName: row.first_name,
-            Surname: row.last_name,  // Using last_name for Surname
-            LastName: row.last_name, // Frontend expects both Surname and LastName
-            PhoneNumber: row.phone,
-            Email: row.email,
-            DateOfBirth: this.formatDateToISOString(row.date_of_birth),
-            Age: row.age
-        }));
-    } finally {
-        client.release();
-    }
-}
+    /** Get birthday reminders - FIXED mapping to handle SP variations */
+    public async getBirthdayReminders(agentId: string): Promise<BirthdayReminder[]> {
+        // Validate agentId
+        if (!agentId || !this.isValidUUID(agentId)) {
+            throw new Error('Valid Agent ID is required');
+        }
 
-/** Get policy expiry reminders - UPDATED to match SP return type */
-public async getPolicyExpiryReminders(agentId: string, daysAhead: number = 30): Promise<PolicyExpiryReminder[]> {
-    const pool = await poolPromise as Pool;
-    const client = await pool.connect();
-    
-    try {
-        const query = `
-            SELECT 
-                policy_id,
-                client_id,
-                policy_name,
-                policy_type,
-                company_name,
-                end_date,
-                first_name,
-                last_name,
-                phone,
-                email,
-                days_until_expiry
-            FROM sp_get_policy_expiry_reminders($1::uuid, $2::integer)
-        `;
+        const pool = await poolPromise as Pool;
+        const client = await pool.connect();
         
-        const result = await client.query(query, [agentId, daysAhead]);
-        return result.rows.map(row => ({
-            PolicyId: row.policy_id,
-            ClientId: row.client_id,
-            PolicyName: row.policy_name,
-            PolicyType: row.policy_type,
-            CompanyName: row.company_name,
-            EndDate: this.formatDateToISOString(row.end_date),
-            FirstName: row.first_name,
-            Surname: row.last_name,  // Using last_name for Surname
-            PhoneNumber: row.phone,
-            Email: row.email,
-            DaysUntilExpiry: row.days_until_expiry
-        }));
-    } finally {
-        client.release();
+        try {
+            const query = `
+                SELECT 
+                    client_id,
+                    first_name,
+                    last_name,
+                    phone,
+                    email,
+                    date_of_birth,
+                    age
+                FROM sp_get_today_birthday_reminders($1::uuid)
+            `;
+            
+            const result = await client.query(query, [agentId]);
+            return result.rows.map(row => ({
+                ClientId: row.client_id,
+                FirstName: row.first_name || '',
+                Surname: row.last_name || '',
+                LastName: row.last_name || '',
+                PhoneNumber: row.phone || '',
+                Email: row.email || '',
+                DateOfBirth: this.formatDateToISOString(row.date_of_birth),
+                Age: row.age || 0
+            }));
+        } catch (error) {
+            console.error('Error fetching birthday reminders:', error);
+            // Return empty array instead of throwing to prevent frontend crashes
+            return [];
+        } finally {
+            client.release();
+        }
     }
-}
+
+    
+    /** Get policy expiry reminders - FIXED mapping to handle SP variations */
+    public async getPolicyExpiryReminders(agentId: string, daysAhead: number = 30): Promise<PolicyExpiryReminder[]> {
+        const pool = await poolPromise as Pool;
+        const client = await pool.connect();
+        
+        try {
+            const query = `
+                SELECT 
+                    policy_id,
+                    client_id,
+                    policy_name,
+                    policy_type,
+                    company_name,
+                    end_date,
+                    first_name,
+                    last_name,
+                    phone,
+                    email,
+                    days_until_expiry
+                FROM sp_get_policy_expiry_reminders($1::uuid, $2::integer)
+            `;
+            
+            const result = await client.query(query, [agentId, daysAhead]);
+            return result.rows.map(row => ({
+                PolicyId: row.policy_id,
+                ClientId: row.client_id,
+                PolicyName: row.policy_name || '',
+                PolicyType: row.policy_type || '',
+                CompanyName: row.company_name || '',
+                EndDate: this.formatDateToISOString(row.end_date),
+                FirstName: row.first_name || '',
+                Surname: row.last_name || '',
+                PhoneNumber: row.phone || '',
+                Email: row.email || '',
+                DaysUntilExpiry: row.days_until_expiry || 0
+            }));
+        } catch (error) {
+            console.error('Error fetching policy expiry reminders:', error);
+            // Return empty array instead of throwing to prevent frontend crashes
+            return [];
+        } finally {
+            client.release();
+        }
+    }
 
     /** Validate phone number */
     public async validatePhoneNumber(phoneNumber: string, countryCode: string = '+254'): Promise<PhoneValidationResult> {
@@ -730,7 +759,7 @@ public async getPolicyExpiryReminders(agentId: string, daysAhead: number = 30): 
         }
     }
 
-    /** UPDATED: Map database row to Reminder object with PROPER CASING and ALL frontend fields */
+    /** FIXED: Map database row to Reminder object - handles missing fields gracefully */
     private mapDatabaseRowToReminder(row: any): Reminder {
         return {
             ReminderId: row.reminder_id,
@@ -755,14 +784,14 @@ public async getPolicyExpiryReminders(agentId: string, daysAhead: number = 30): 
             CreatedDate: this.formatDateTimeToISOString(row.created_date),
             ModifiedDate: this.formatDateTimeToISOString(row.modified_date),
             CompletedDate: row.completed_date ? this.formatDateTimeToISOString(row.completed_date) : undefined,
-            // FIXED: Add missing frontend fields
-            ClientPhone: row.client_phone,
-            ClientEmail: row.client_email,
-            FullClientName: row.full_client_name || row.client_name
+            // FIXED: Handle missing computed fields gracefully
+            ClientPhone: row.client_phone || '',
+            ClientEmail: row.client_email || '',
+            FullClientName: row.full_client_name || row.client_name || ''
         };
     }
 
-    /** UPDATED: Map database row to ReminderSettings object with PROPER CASING */
+    /** FIXED: Map database row to ReminderSettings object with PROPER CASING */
     private mapDatabaseRowToReminderSettings(row: any): ReminderSettings {
         return {
             ReminderSettingId: row.reminder_setting_id,

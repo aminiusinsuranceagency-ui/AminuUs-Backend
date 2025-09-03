@@ -1,14 +1,23 @@
 // =============================================
 // UPDATED INTERFACES - interfaces/reminders.ts
+// Aligned with Frontend Expectations
 // =============================================
 
-// Reminder record - UPDATED to match both frontend and backend expectations
+// Reminder record - Updated to match frontend expectations
 export interface Reminder {
     ReminderId: string;
     ClientId?: string;
     AppointmentId?: string;
     AgentId: string;
-    ReminderType: 'Call' | 'Visit' | 'Policy Expiry' | 'Maturing Policy' | 'Birthday' | 'Holiday' | 'Custom' | 'Appointment';   
+    ReminderType: 
+        'Call' 
+        | 'Visit' 
+        | 'Policy Expiry' 
+        | 'Maturing Policy' 
+        | 'Birthday' 
+        | 'Holiday' 
+        | 'Custom' 
+        | 'Appointment';   
     Title: string;
     Description?: string;
     ReminderDate: string; // ISO string for frontend
@@ -31,7 +40,7 @@ export interface Reminder {
     FullClientName?: string;
 }
 
-// Reminder settings - UPDATED ReminderType to include all types
+// Reminder settings - Updated to match frontend types
 export interface ReminderSettings {
     ReminderSettingId: string;
     AgentId: string;
@@ -43,16 +52,16 @@ export interface ReminderSettings {
         | 'Visit' 
         | 'Maturing Policy' 
         | 'Holiday' 
-        | 'Custom'; // ADDED missing types
+        | 'Custom';
     IsEnabled: boolean;
     DaysBefore: number;
-    TimeOfDay: string; // HH:MM:SS format
+    TimeOfDay: string; // SQL TIME format (HH:MM:SS)
     RepeatDaily: boolean;
     CreatedDate: string; // ISO string format
     ModifiedDate: string; // ISO string format
 }
 
-// Request to create a reminder - UPDATED to include all types
+// Request to create a reminder - Updated to include all types
 export interface CreateReminderRequest {
     ClientId?: string;
     AppointmentId?: string;
@@ -60,10 +69,10 @@ export interface CreateReminderRequest {
         'Call' 
         | 'Visit' 
         | 'Policy Expiry' 
+        | 'Maturing Policy' 
         | 'Birthday' 
         | 'Holiday' 
         | 'Custom' 
-        | 'Maturing Policy' 
         | 'Appointment';
     Title: string;
     Description?: string;
@@ -80,7 +89,7 @@ export interface CreateReminderRequest {
     Notes?: string;
 }
 
-// Request to update a reminder - UNCHANGED
+// Request to update a reminder
 export interface UpdateReminderRequest {
     Title?: string;
     Description?: string;
@@ -97,20 +106,28 @@ export interface UpdateReminderRequest {
     Notes?: string;
 }
 
-// Filters for listing reminders - UPDATED to include all types
-
+// Filters for listing reminders - Updated to include all types and string alternatives
 export interface ReminderFilters {
-    ReminderType?: string;
-    Status?: string;
-    Priority?: string;
-    StartDate?: string;
-    EndDate?: string;
+    ReminderType?: 
+        'Call' 
+        | 'Visit' 
+        | 'Policy Expiry' 
+        | 'Maturing Policy' 
+        | 'Birthday' 
+        | 'Holiday' 
+        | 'Custom' 
+        | 'Appointment' 
+        | string; // Allow string for flexibility
+    Status?: 'Active' | 'Completed' | 'Cancelled' | string;
+    Priority?: 'High' | 'Medium' | 'Low' | string;
+    StartDate?: string; // ISO string format
+    EndDate?: string; // ISO string format
     ClientId?: string;
     PageSize?: number;
     PageNumber?: number;
 }
 
-// Paged reminder response - UNCHANGED
+// Paged reminder response
 export interface PaginatedReminderResponse {
     reminders: Reminder[];
     totalRecords: number;
@@ -119,7 +136,7 @@ export interface PaginatedReminderResponse {
     pageSize: number;
 }
 
-// Birthday reminder view - UNCHANGED
+// Birthday reminder view - Matches frontend expectations
 export interface BirthdayReminder {
     ClientId: string;
     FirstName: string;
@@ -131,7 +148,7 @@ export interface BirthdayReminder {
     Age: number;
 }
 
-// Policy expiry reminder view - UNCHANGED
+// Policy expiry reminder view - Matches frontend expectations
 export interface PolicyExpiryReminder {
     PolicyId: string;
     ClientId: string;
@@ -146,14 +163,14 @@ export interface PolicyExpiryReminder {
     DaysUntilExpiry: number;
 }
 
-// Phone validation response - UNCHANGED
+// Phone validation response
 export interface PhoneValidationResult {
     IsValid: boolean;
     FormattedNumber: string;
     ValidationMessage: string;
 }
 
-// Statistics interface - UNCHANGED  
+// Statistics interface - Matches frontend expectations
 export interface ReminderStatistics {
     TotalActive: number;
     TotalCompleted: number;
