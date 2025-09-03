@@ -140,7 +140,7 @@ export class PolicyService {
  */
 public async getClientsWithPolicies(
   request: ClientWithPoliciesFilterRequest
-): Promise<ClientWithPolicies[]> {
+): Promise<any[]> {
   try {
     const pool = await poolPromise;
     const result = await pool.query(
@@ -148,13 +148,102 @@ public async getClientsWithPolicies(
       [request.agentId || null, request.clientId || null, request.includeInactive || false]
     );
 
-    const data = this.mapClientsWithPolicies(result.rows);
+    // Map to the nested structure first
+    const nestedData = this.mapClientsWithPolicies(result.rows);
+    
+    // Flatten the data to match frontend expectations
+    const flattenedData: any[] = [];
+    
+    nestedData.forEach(client => {
+      if (client.policies && client.policies.length > 0) {
+        // For each policy, create a flattened row with both client and policy data
+        client.policies.forEach(policy => {
+          flattenedData.push({
+            // Client data
+            clientId: client.clientId,
+            agentId: client.agentId,
+            firstName: client.firstName,
+            surname: client.surname,
+            lastName: client.lastName,
+            fullName: client.fullName,
+            phoneNumber: client.phoneNumber,
+            email: client.email,
+            address: client.address,
+            nationalId: client.nationalId,
+            dateOfBirth: client.dateOfBirth,
+            isClient: client.isClient,
+            insuranceType: client.insuranceType,
+            clientNotes: client.clientNotes,
+            clientCreatedDate: client.clientCreatedDate,
+            clientModifiedDate: client.clientModifiedDate,
+            clientIsActive: client.clientIsActive,
+            
+            // Policy data (flattened to root level to match frontend processing)
+            policyId: policy.policyId,
+            policyName: policy.policyName,
+            status: policy.status,
+            startDate: policy.startDate,
+            endDate: policy.endDate,
+            notes: policy.notes, // Policy notes
+            policyCreatedDate: policy.createdDate,
+            policyModifiedDate: policy.modifiedDate,
+            policyIsActive: policy.isActive,
+            policyCatalogId: policy.policyCatalogId,
+            catalogPolicyName: policy.catalogPolicyName,
+            typeId: policy.typeId,
+            typeName: policy.typeName,
+            companyId: policy.companyId,
+            companyName: policy.companyName,
+            daysUntilExpiry: policy.daysUntilExpiry
+          });
+        });
+      } else {
+        // Client with no policies - still include the client data
+        flattenedData.push({
+          // Client data
+          clientId: client.clientId,
+          agentId: client.agentId,
+          firstName: client.firstName,
+          surname: client.surname,
+          lastName: client.lastName,
+          fullName: client.fullName,
+          phoneNumber: client.phoneNumber,
+          email: client.email,
+          address: client.address,
+          nationalId: client.nationalId,
+          dateOfBirth: client.dateOfBirth,
+          isClient: client.isClient,
+          insuranceType: client.insuranceType,
+          clientNotes: client.clientNotes,
+          clientCreatedDate: client.clientCreatedDate,
+          clientModifiedDate: client.clientModifiedDate,
+          clientIsActive: client.clientIsActive,
+          
+          // No policy data for clients without policies
+          policyId: null,
+          policyName: null,
+          status: null,
+          startDate: null,
+          endDate: null,
+          notes: null,
+          policyCreatedDate: null,
+          policyModifiedDate: null,
+          policyIsActive: null,
+          policyCatalogId: null,
+          catalogPolicyName: null,
+          typeId: null,
+          typeName: null,
+          companyId: null,
+          companyName: null,
+          daysUntilExpiry: null
+        });
+      }
+    });
 
-    // Return the array directly instead of wrapping in PolicyResponse
-    return data;
+    console.log("Flattened data being returned:", flattenedData);
+    return flattenedData;
   } catch (error) {
     console.error("Error in getClientsWithPolicies:", error);
-    // Throw the error to be handled by error middleware/handler
     throw new Error(error instanceof Error ? error.message : "Failed to get clients with policies");
   }
 }

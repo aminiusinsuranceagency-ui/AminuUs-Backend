@@ -87,35 +87,32 @@ export const getPolicyCatalog = async (req: Request, res: Response) => {
         });
     }
 };
-
 export const getClientsWithPolicies = async (req: Request, res: Response): Promise<void> => {
-    try {
-        const { agentId, clientId, includeInactive } = req.query;
-        
-        const request: ClientWithPoliciesFilterRequest = {
-            agentId: agentId as string,
-            clientId: clientId as string,
-            includeInactive: includeInactive === 'true'
-        };
-        
-        // Since the service now returns ClientWithPolicies[] directly, no need to check result.success
-        const data = await policyService.getClientsWithPolicies(request);
-        
-        // Return the array directly
-        res.status(200).json(data);
-        
-    } catch (error) {
-        console.error('Error in getClientsWithPolicies controller:', error);
-        
-        // Return proper error response with meaningful message
-        const errorMessage = error instanceof Error ? error.message : 'Failed to get clients with policies';
-        res.status(500).json({ 
-            error: errorMessage,
-            message: 'Internal server error'
-        });
-    }
+  try {
+    const { agentId, clientId, includeInactive } = req.query;
+             
+    const request: ClientWithPoliciesFilterRequest = {
+      agentId: agentId as string,
+      clientId: clientId as string,
+      includeInactive: includeInactive === 'true'
+    };
+             
+    // Get the flattened data
+    const data = await policyService.getClientsWithPolicies(request);
+             
+    // Return the flattened array directly
+    res.status(200).json(data);
+         
+  } catch (error) {
+    console.error('Error in getClientsWithPolicies controller:', error);
+             
+    const errorMessage = error instanceof Error ? error.message : 'Failed to get clients with policies';
+    res.status(500).json({ 
+      error: errorMessage,
+      message: 'Internal server error'
+    });
+  }
 };
-
 export const createPolicyCatalogItem = async (req: Request, res: Response) => {
     try {
         const request: CreatePolicyCatalogRequest = req.body;
