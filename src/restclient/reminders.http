@@ -15,10 +15,10 @@ x-agent-id: {{agentId}}
 
 {
     "ReminderType": "Call",
-    "Title": "Follow up call with client",
+    "Title": " call with client",
     "Description": "Call about policy clarification",
     "ReminderDate": "2025-09-15",
-    "ReminderTime": "15:30:00",
+    "ReminderTime": "16:30:00",
     "Priority": "High",
     "ClientName": "John Doe",
     "EnableSMS": true,
