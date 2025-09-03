@@ -95,7 +95,7 @@ Content-Type: application/json
 }
 
 ### 18. Search Clients for Autocomplete
-GET {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c/clients/search?q=john
+GET {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c/clients/search?q=vict
 
 ### 19. Search Clients (partial name)
 GET {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c/clients/search?q=jo
