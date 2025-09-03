@@ -91,7 +91,7 @@ export class AppointmentController {
         };
     }
 
-  /** Search clients for autocomplete */
+ /** Search clients for autocomplete */
 public async searchClients(req: Request, res: Response) {
     console.log('🔍 SEARCH CLIENTS - Controller method started');
     
@@ -112,19 +112,16 @@ public async searchClients(req: Request, res: Response) {
         
         console.log('✅ SEARCH CLIENTS - Found clients:', clients.length);
 
-        res.status(200).json({
-            success: true,
-            message: "Clients retrieved successfully",
-            count: clients.length,
-            clients,  // ✅ added for frontend compatibility
-            data: clients // ✅ kept for consistency
-        });
+        // ✅ Return only the array to match Angular expectations
+        res.status(200).json(clients);
+
     } catch (error: any) {
         console.error('❌ SEARCH CLIENTS - Error:', error);
         const errorResponse = this.handlePostgreSQLError(error, 'Error searching clients');
         res.status(errorResponse.statusCode).json(errorResponse.response);
     }
 }
+
 
     /** Create appointment */
     public async create(req: Request, res: Response) {
