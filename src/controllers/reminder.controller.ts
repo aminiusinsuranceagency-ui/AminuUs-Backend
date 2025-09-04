@@ -1,5 +1,6 @@
 // =============================================
 // UPDATED REMINDERS CONTROLLER - reminders.controller.ts
+// Fixed to match frontend API expectations
 // =============================================
 
 import { Request, Response } from 'express';
@@ -23,7 +24,7 @@ export class RemindersController {
         this.reminderService = new ReminderService();
     }
 
-    /** Create a new reminder */
+    /** Create a new reminder - FIXED response format */
     public createReminder = async (req: Request, res: Response): Promise<void> => {
         try {
             console.log('📝 Controller: Create reminder request received:', req.body);
@@ -55,10 +56,11 @@ export class RemindersController {
             
             console.log('✅ Controller: Reminder created successfully:', result);
             
+            // FIXED: Return the format expected by frontend
             res.status(201).json({
                 success: true,
                 message: 'Reminder created successfully',
-                data: result
+                data: result // Frontend expects { ReminderId: string }
             });
 
         } catch (error: unknown) {
@@ -73,7 +75,7 @@ export class RemindersController {
         }
     };
 
-    /** Get all reminders with filters and pagination */
+    /** Get all reminders with filters and pagination - FIXED response format */
     public getAllReminders = async (req: Request, res: Response): Promise<void> => {
         try {
             console.log('🌟 Controller: getAllReminders - Starting...');
@@ -128,11 +130,8 @@ export class RemindersController {
                 totalPages: result.totalPages
             });
 
-            res.status(200).json({
-                success: true,
-                data: result,
-                message: 'Reminders retrieved successfully'
-            });
+            // FIXED: Frontend expects the data directly, not wrapped in { success, data }
+            res.status(200).json(result);
 
         } catch (error) {
             console.error('❌ Controller: Error getting all reminders:', error);
@@ -144,7 +143,7 @@ export class RemindersController {
         }
     };
 
-    /** Get reminder by ID */
+    /** Get reminder by ID - FIXED response format */
     public getReminderById = async (req: Request, res: Response): Promise<void> => {
         try {
             console.log('🔍 Controller: getReminderById - Starting...');
@@ -177,11 +176,8 @@ export class RemindersController {
 
             console.log('✅ Controller: getReminderById success:', reminder.Title);
 
-            res.status(200).json({
-                success: true,
-                data: reminder,
-                message: 'Reminder retrieved successfully'
-            });
+            // FIXED: Frontend expects the reminder directly
+            res.status(200).json(reminder);
 
         } catch (error) {
             console.error('❌ Controller: Error getting reminder:', error);
@@ -193,7 +189,7 @@ export class RemindersController {
         }
     };
 
-    /** Update a reminder */
+    /** Update a reminder - FIXED response format */
     public updateReminder = async (req: Request, res: Response): Promise<void> => {
         try {
             const agentId = req.params.agentId || req.headers['x-agent-id'] as string;
@@ -227,11 +223,10 @@ export class RemindersController {
                 return;
             }
 
-            res.status(200).json({
-                success: true,
-                message: 'Reminder updated successfully',
-                data: result
-            });
+            // FIXED: Frontend expects the updated reminder, so fetch and return it
+            const updatedReminder = await this.reminderService.getReminderById(reminderId, agentId);
+            
+            res.status(200).json(updatedReminder);
 
         } catch (error: unknown) {
             console.error('❌ Controller: Error updating reminder:', error);
@@ -346,7 +341,7 @@ export class RemindersController {
         }
     };
 
-    /** Get today's reminders */
+    /** Get today's reminders - FIXED response format */
     public getTodayReminders = async (req: Request, res: Response): Promise<void> => {
         try {
             const agentId = req.params.agentId || req.headers['x-agent-id'] as string;
@@ -362,12 +357,8 @@ export class RemindersController {
             console.log(`🔍 Getting today's reminders for agent: ${agentId}`);
             const reminders: Reminder[] = await this.reminderService.getTodayReminders(agentId);
             
-            res.status(200).json({
-                success: true,
-                message: 'Today\'s reminders retrieved successfully',
-                data: reminders,
-                count: reminders.length
-            });
+            // FIXED: Return reminders directly as array
+            res.status(200).json(reminders);
             
         } catch (error: unknown) {
             console.error('❌ Controller: Error getting today\'s reminders:', error);
@@ -381,7 +372,7 @@ export class RemindersController {
         }
     };
 
-    /** Get reminder settings */
+    /** Get reminder settings - FIXED response format */
     public getReminderSettings = async (req: Request, res: Response): Promise<void> => {
         try {
             const agentId = req.params.agentId || req.headers['x-agent-id'] as string;
@@ -396,11 +387,8 @@ export class RemindersController {
 
             const settings: ReminderSettings[] = await this.reminderService.getReminderSettings(agentId);
             
-            res.status(200).json({
-                success: true,
-                message: 'Reminder settings retrieved successfully',
-                data: settings
-            });
+            // FIXED: Return settings directly as array
+            res.status(200).json(settings);
 
         } catch (error: unknown) {
             console.error('❌ Controller: Error getting reminder settings:', error);
@@ -457,7 +445,7 @@ export class RemindersController {
         }
     };
 
-    /** Get reminder statistics */
+    /** Get reminder statistics - FIXED response format */
     public getReminderStatistics = async (req: Request, res: Response): Promise<void> => {
         try {
             console.log('📊 Controller: getReminderStatistics - Starting...');
@@ -476,11 +464,8 @@ export class RemindersController {
 
             const statistics: ReminderStatistics = await this.reminderService.getReminderStatistics(agentId);
             
-            res.status(200).json({
-                success: true,
-                message: 'Reminder statistics retrieved successfully',
-                data: statistics
-            });
+            // FIXED: Return statistics directly
+            res.status(200).json(statistics);
 
         } catch (error: unknown) {
             console.error('❌ Controller: Error getting reminder statistics:', error);
@@ -494,7 +479,7 @@ export class RemindersController {
         }
     };
 
-    /** Get reminders by type */
+    /** Get reminders by type - FIXED response format */
     public getRemindersByType = async (req: Request, res: Response): Promise<void> => {
         try {
             const agentId = req.params.agentId || req.headers['x-agent-id'] as string;
@@ -528,11 +513,8 @@ export class RemindersController {
 
             const reminders: Reminder[] = await this.reminderService.getRemindersByType(agentId, validatedType);
             
-            res.status(200).json({
-                success: true,
-                message: `Reminders of type '${validatedType}' retrieved successfully`,
-                data: reminders
-            });
+            // FIXED: Return reminders directly as array
+            res.status(200).json(reminders);
 
         } catch (error: unknown) {
             console.error('❌ Controller: Error getting reminders by type:', error);
@@ -546,7 +528,7 @@ export class RemindersController {
         }
     };
 
-    /** Get reminders by status */
+    /** Get reminders by status - FIXED response format */
     public getRemindersByStatus = async (req: Request, res: Response): Promise<void> => {
         try {
             const agentId = req.params.agentId || req.headers['x-agent-id'] as string;
@@ -580,11 +562,8 @@ export class RemindersController {
 
             const reminders: Reminder[] = await this.reminderService.getRemindersByStatus(agentId, validatedStatus);
             
-            res.status(200).json({
-                success: true,
-                message: `Reminders with status '${validatedStatus}' retrieved successfully`,
-                data: reminders
-            });
+            // FIXED: Return reminders directly as array
+            res.status(200).json(reminders);
 
         } catch (error: unknown) {
             console.error('❌ Controller: Error getting reminders by status:', error);
@@ -598,7 +577,7 @@ export class RemindersController {
         }
     };
 
-    /** Get birthday reminders */
+    /** Get birthday reminders - FIXED response format */
     public getBirthdayReminders = async (req: Request, res: Response): Promise<void> => {
         try {
             const agentId = req.params.agentId || req.headers['x-agent-id'] as string;
@@ -614,12 +593,8 @@ export class RemindersController {
             console.log(`🎂 Getting birthday reminders for agent: ${agentId}`);
             const birthdayReminders: BirthdayReminder[] = await this.reminderService.getBirthdayReminders(agentId);
             
-            res.status(200).json({
-                success: true,
-                message: 'Birthday reminders retrieved successfully',
-                data: birthdayReminders,
-                count: birthdayReminders.length
-            });
+            // FIXED: Return birthday reminders directly as array
+            res.status(200).json(birthdayReminders);
             
         } catch (error: unknown) {
             console.error('❌ Controller: Error getting birthday reminders:', error);
@@ -633,7 +608,7 @@ export class RemindersController {
         }
     };
 
-    /** Get policy expiry reminders */
+    /** Get policy expiry reminders - FIXED response format */
     public getPolicyExpiryReminders = async (req: Request, res: Response): Promise<void> => {
         try {
             const agentId = req.params.agentId || req.headers['x-agent-id'] as string;
@@ -659,13 +634,8 @@ export class RemindersController {
             console.log(`📋 Getting policy expiry reminders for agent: ${agentId}, daysAhead: ${daysAhead}`);
             const policyReminders: PolicyExpiryReminder[] = await this.reminderService.getPolicyExpiryReminders(agentId, daysAhead);
             
-            res.status(200).json({
-                success: true,
-                message: 'Policy expiry reminders retrieved successfully',
-                data: policyReminders,
-                count: policyReminders.length,
-                daysAhead: daysAhead
-            });
+            // FIXED: Return policy reminders directly as array
+            res.status(200).json(policyReminders);
             
         } catch (error: unknown) {
             console.error('❌ Controller: Error getting policy expiry reminders:', error);
@@ -715,19 +685,31 @@ export class RemindersController {
         }
     };
 
-    // Validation helper methods
-    private validateReminderType(type: string): string | undefined {
-        const validTypes = ['Call', 'Visit', 'Policy Expiry', 'Maturing Policy', 'Birthday', 'Holiday', 'Custom', 'Appointment'];
-        return validTypes.includes(type) ? type : undefined;
+    // UPDATED: Validation helper methods with proper return types
+    private validateReminderType(type: string): 'Call' | 'Visit' | 'Policy Expiry' | 'Maturing Policy' | 'Birthday' | 'Holiday' | 'Custom' | 'Appointment' | undefined {
+        if (!type) return undefined;
+        const validTypes = [
+            'Call', 
+            'Visit', 
+            'Policy Expiry', 
+            'Maturing Policy', 
+            'Birthday', 
+            'Holiday', 
+            'Custom', 
+            'Appointment'
+        ] as const;
+        return validTypes.includes(type as any) ? type as any : undefined;
     }
 
-    private validateStatus(status: string): string | undefined {
-        const validStatuses = ['Active', 'Completed', 'Cancelled'];
-        return validStatuses.includes(status) ? status : undefined;
+    private validateStatus(status: string): 'Active' | 'Completed' | 'Cancelled' | undefined {
+        if (!status) return undefined;
+        const validStatuses = ['Active', 'Completed', 'Cancelled'] as const;
+        return validStatuses.includes(status as any) ? status as any : undefined;
     }
 
-    private validatePriority(priority: string): string | undefined {
-        const validPriorities = ['High', 'Medium', 'Low'];
-        return validPriorities.includes(priority) ? priority : undefined;
+    private validatePriority(priority: string): 'High' | 'Medium' | 'Low' | undefined {
+        if (!priority) return undefined;
+        const validPriorities = ['High', 'Medium', 'Low'] as const;
+        return validPriorities.includes(priority as any) ? priority as any : undefined;
     }
 }

@@ -1,9 +1,9 @@
 // =============================================
 // UPDATED INTERFACES - interfaces/reminders.ts
-// Aligned with Frontend Expectations
+// Aligned with Frontend Requirements
 // =============================================
 
-// Reminder record - Updated to match frontend expectations
+// Reminder record - Updated to match frontend expectations exactly
 export interface Reminder {
     ReminderId: string;
     ClientId?: string;
@@ -40,7 +40,7 @@ export interface Reminder {
     FullClientName?: string;
 }
 
-// Reminder settings - Updated to match frontend types
+// Reminder settings - Updated to match frontend types exactly
 export interface ReminderSettings {
     ReminderSettingId: string;
     AgentId: string;
@@ -61,7 +61,7 @@ export interface ReminderSettings {
     ModifiedDate: string; // ISO string format
 }
 
-// Request to create a reminder - Updated to include all types
+// Request to create a reminder - Updated to include all frontend types
 export interface CreateReminderRequest {
     ClientId?: string;
     AppointmentId?: string;
@@ -89,7 +89,7 @@ export interface CreateReminderRequest {
     Notes?: string;
 }
 
-// Request to update a reminder
+// Request to update a reminder - Matches frontend exactly
 export interface UpdateReminderRequest {
     Title?: string;
     Description?: string;
@@ -106,7 +106,7 @@ export interface UpdateReminderRequest {
     Notes?: string;
 }
 
-// Filters for listing reminders - Updated to include all types and string alternatives
+// Filters for listing reminders - Updated to include all frontend types
 export interface ReminderFilters {
     ReminderType?: 
         'Call' 
@@ -116,10 +116,9 @@ export interface ReminderFilters {
         | 'Birthday' 
         | 'Holiday' 
         | 'Custom' 
-        | 'Appointment' 
-        | string; // Allow string for flexibility
-    Status?: 'Active' | 'Completed' | 'Cancelled' | string;
-    Priority?: 'High' | 'Medium' | 'Low' | string;
+        | 'Appointment';
+    Status?: 'Active' | 'Completed' | 'Cancelled';
+    Priority?: 'High' | 'Medium' | 'Low';
     StartDate?: string; // ISO string format
     EndDate?: string; // ISO string format
     ClientId?: string;
@@ -127,7 +126,7 @@ export interface ReminderFilters {
     PageNumber?: number;
 }
 
-// Paged reminder response
+// Paged reminder response - Matches frontend exactly
 export interface PaginatedReminderResponse {
     reminders: Reminder[];
     totalRecords: number;
@@ -136,7 +135,7 @@ export interface PaginatedReminderResponse {
     pageSize: number;
 }
 
-// Birthday reminder view - Matches frontend expectations
+// Birthday reminder view - Matches frontend expectations exactly
 export interface BirthdayReminder {
     ClientId: string;
     FirstName: string;
@@ -148,7 +147,7 @@ export interface BirthdayReminder {
     Age: number;
 }
 
-// Policy expiry reminder view - Matches frontend expectations
+// Policy expiry reminder view - Matches frontend expectations exactly
 export interface PolicyExpiryReminder {
     PolicyId: string;
     ClientId: string;
@@ -163,14 +162,14 @@ export interface PolicyExpiryReminder {
     DaysUntilExpiry: number;
 }
 
-// Phone validation response
+// Phone validation response - Matches frontend exactly
 export interface PhoneValidationResult {
     IsValid: boolean;
     FormattedNumber: string;
     ValidationMessage: string;
 }
 
-// Statistics interface - Matches frontend expectations
+// Statistics interface - Matches frontend expectations exactly
 export interface ReminderStatistics {
     TotalActive: number;
     TotalCompleted: number;

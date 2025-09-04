@@ -27,7 +27,8 @@ export class ReminderService {
     private isValidUUID(uuid: string): boolean {
         return uuidValidate(uuid);
     }
-    /** Create a new reminder - FIXED to return proper structure */
+
+    /** Create a new reminder - FIXED to handle all reminder types */
     public async createReminder(agentId: string, reminderData: CreateReminderRequest): Promise<{ ReminderId: string }> {
         console.log('📝 Backend: Creating reminder with raw data:', reminderData);
         
@@ -35,6 +36,11 @@ export class ReminderService {
             // Validate agentId
             if (!agentId || !this.isValidUUID(agentId)) {
                 throw new Error('Valid Agent ID is required');
+            }
+
+            // FIXED: Validate reminder type against expanded list
+            if (!this.isValidReminderType(reminderData.ReminderType)) {
+                throw new Error(`Invalid reminder type: ${reminderData.ReminderType}`);
             }
 
             let validatedTime: string | null = null;
@@ -97,7 +103,7 @@ export class ReminderService {
         }
     }
 
-    /** Get all reminders with filters and pagination - FIXED response format */
+    /** Get all reminders with filters and pagination */
     public async getAllReminders(agentId: string, filters: ReminderFilters = {}): Promise<PaginatedReminderResponse> {
         // Validate agentId
         if (!agentId || !this.isValidUUID(agentId)) {
@@ -206,7 +212,7 @@ export class ReminderService {
         }
     }
 
-    /** Get reminder by ID - FIXED to match frontend expectations */
+    /** Get reminder by ID */
     public async getReminderById(reminderId: string, agentId: string): Promise<Reminder | null> {
         // Validate inputs
         if (!reminderId || !this.isValidUUID(reminderId)) {
@@ -351,7 +357,7 @@ export class ReminderService {
         }
     }
 
-    /** Get today's reminders - FIXED with fallback approach */
+    /** Get today's reminders */
     public async getTodayReminders(agentId: string): Promise<Reminder[]> {
         // Validate agentId
         if (!agentId || !this.isValidUUID(agentId)) {
@@ -418,7 +424,7 @@ export class ReminderService {
         }
     }
 
-    /** Get reminder settings - FIXED mapping */
+    /** Get reminder settings */
     public async getReminderSettings(agentId: string): Promise<ReminderSettings[]> {
         // Validate agentId
         if (!agentId || !this.isValidUUID(agentId)) {
@@ -440,7 +446,7 @@ export class ReminderService {
         }
     }
 
-    /** Update reminder settings - FIXED to accept ReminderSettings object */
+    /** Update reminder settings */
     public async updateReminderSettings(agentId: string, settings: ReminderSettings): Promise<void> {
         // Validate agentId
         if (!agentId || !this.isValidUUID(agentId)) {
@@ -470,7 +476,7 @@ export class ReminderService {
         }
     }
 
-    /** Get reminder statistics - FIXED return type and error handling */
+    /** Get reminder statistics */
     public async getReminderStatistics(agentId: string): Promise<ReminderStatistics> {
         // Validate agentId
         if (!agentId || !this.isValidUUID(agentId)) {
@@ -527,6 +533,11 @@ export class ReminderService {
             throw new Error('Reminder type is required');
         }
 
+        // FIXED: Validate against expanded reminder types
+        if (!this.isValidReminderType(reminderType)) {
+            throw new Error(`Invalid reminder type: ${reminderType}`);
+        }
+
         try {
             const pool = await poolPromise as Pool;
             const client = await pool.connect();
@@ -577,7 +588,7 @@ export class ReminderService {
         }
     }
 
-    /** Get birthday reminders - FIXED mapping to handle SP variations */
+    /** Get birthday reminders */
     public async getBirthdayReminders(agentId: string): Promise<BirthdayReminder[]> {
         // Validate agentId
         if (!agentId || !this.isValidUUID(agentId)) {
@@ -620,8 +631,7 @@ export class ReminderService {
         }
     }
 
-    
-    /** Get policy expiry reminders - FIXED mapping to handle SP variations */
+    /** Get policy expiry reminders */
     public async getPolicyExpiryReminders(agentId: string, daysAhead: number = 30): Promise<PolicyExpiryReminder[]> {
         const pool = await poolPromise as Pool;
         const client = await pool.connect();
@@ -689,7 +699,22 @@ export class ReminderService {
         }
     }
 
-    // PostgreSQL time validation method - UNCHANGED
+    // ADDED: Helper method to validate reminder types
+    private isValidReminderType(type: string): boolean {
+        const validTypes = [
+            'Call',
+            'Visit', 
+            'Policy Expiry',
+            'Maturing Policy',
+            'Birthday',
+            'Holiday',
+            'Custom',
+            'Appointment'
+        ];
+        return validTypes.includes(type);
+    }
+
+    // PostgreSQL time validation method
     private validateAndFormatPostgreSQLTime(timeString: string | null | undefined): string | null {
         console.log('🕐 Backend: Validating PostgreSQL time:', timeString, typeof timeString);
         
@@ -759,7 +784,7 @@ export class ReminderService {
         }
     }
 
-    /** FIXED: Map database row to Reminder object - handles missing fields gracefully */
+    /** Map database row to Reminder object */
     private mapDatabaseRowToReminder(row: any): Reminder {
         return {
             ReminderId: row.reminder_id,
@@ -784,14 +809,14 @@ export class ReminderService {
             CreatedDate: this.formatDateTimeToISOString(row.created_date),
             ModifiedDate: this.formatDateTimeToISOString(row.modified_date),
             CompletedDate: row.completed_date ? this.formatDateTimeToISOString(row.completed_date) : undefined,
-            // FIXED: Handle missing computed fields gracefully
+            // Handle missing computed fields gracefully
             ClientPhone: row.client_phone || '',
             ClientEmail: row.client_email || '',
             FullClientName: row.full_client_name || row.client_name || ''
         };
     }
 
-    /** FIXED: Map database row to ReminderSettings object with PROPER CASING */
+    /** Map database row to ReminderSettings object */
     private mapDatabaseRowToReminderSettings(row: any): ReminderSettings {
         return {
             ReminderSettingId: row.reminder_setting_id,
@@ -806,7 +831,7 @@ export class ReminderService {
         };
     }
 
-    /** Format date to ISO string - UNCHANGED */
+    /** Format date to ISO string */
     private formatDateToISOString(date: any): string {
         if (!date) return '';
         
@@ -824,7 +849,7 @@ export class ReminderService {
         return String(date);
     }
 
-    /** Format datetime to ISO string - UNCHANGED */
+    /** Format datetime to ISO string */
     private formatDateTimeToISOString(datetime: any): string {
         if (!datetime) return '';
         
