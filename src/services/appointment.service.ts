@@ -15,50 +15,29 @@ export class AppointmentService {
 async searchClientsForAutocomplete(searchTerm: string, agentId: string): Promise<ClientSearchResult[]> {
     const pool = await poolPromise;
     
-    // Enhanced query for better search results
     const query = `
       SELECT 
         client_id as "clientId",
-        TRIM(COALESCE(first_name, '') || ' ' || COALESCE(surname, '') || ' ' || COALESCE(last_name, '')) AS "clientName",
+        (first_name || ' ' || surname || ' ' || last_name) AS "clientName",
         phone_number as "phone",
         email,
-        address,
-        policy_number as "policyNumber",
-        CASE 
-          WHEN is_active = TRUE THEN 'Active'
-          ELSE 'Inactive'
-        END as "status"
+        address
       FROM clients
       WHERE agent_id = $1
         AND is_active = TRUE
         AND (
-          LOWER(first_name) LIKE LOWER($2) OR
-          LOWER(surname) LIKE LOWER($2) OR
-          LOWER(last_name) LIKE LOWER($2) OR
-          LOWER(phone_number) LIKE LOWER($2) OR
-          LOWER(email) LIKE LOWER($2) OR
-          LOWER(CONCAT(first_name, ' ', COALESCE(surname, ''), ' ', COALESCE(last_name, ''))) LIKE LOWER($2)
+          first_name ILIKE $2 OR
+          surname ILIKE $2 OR
+          last_name ILIKE $2 OR
+          phone_number ILIKE $2 OR
+          email ILIKE $2
         )
-      ORDER BY 
-        CASE 
-          WHEN LOWER(first_name) LIKE LOWER($3) THEN 1
-          WHEN LOWER(CONCAT(first_name, ' ', COALESCE(surname, ''))) LIKE LOWER($3) THEN 2
-          ELSE 3
-        END,
-        first_name, surname, last_name
+      ORDER BY first_name
       LIMIT 10;
     `;
-
-    const searchPattern = `%${searchTerm}%`;
-    const exactStartPattern = `${searchTerm}%`;
     
-    const { rows } = await pool.query(query, [agentId, searchPattern, exactStartPattern]);
-    
-    // Clean up clientName to remove extra spaces
-    return rows.map(row => ({
-        ...row,
-        clientName: row.clientName.replace(/\s+/g, ' ').trim()
-    }));
+    const { rows } = await pool.query(query, [agentId, `%${searchTerm}%`]);
+    return rows;
 }
 
 
