@@ -1,6 +1,6 @@
 // =============================================
-// REMINDER ROUTES - routes/reminder.routes.ts
-// Aligned with Frontend Service Expectations
+// UPDATED REMINDER ROUTES - routes/reminder.routes.ts
+// Fixed to match both frontend service and controller expectations
 // =============================================
 
 import { Router } from 'express';
@@ -10,106 +10,7 @@ const router = Router();
 const remindersController = new RemindersController();
 
 // =============================================
-// CORE REMINDER ROUTES
-// =============================================
-
-// Create a new reminder
-// POST /api/reminders
-// Headers: x-agent-id (required)
-// Body: CreateReminderRequest
-router.post('/', remindersController.createReminder);
-
-// Get all reminders with pagination and filters
-// GET /api/reminders/agent/:agentId
-// Query params: reminderType?, status?, priority?, startDate?, endDate?, clientId?, pageSize?, pageNumber?
-router.get('/agent/:agentId', remindersController.getAllReminders);
-
-// Get reminder by ID
-// GET /api/reminders/agent/:agentId/reminder/:reminderId
-router.get('/agent/:agentId/reminder/:reminderId', remindersController.getReminderById);
-
-// Alternative route for getting reminder by ID (for backward compatibility)
-// GET /api/reminders/:reminderId
-// Headers: x-agent-id (required)
-router.get('/:reminderId', remindersController.getReminderById);
-
-// Update a reminder
-// PUT /api/reminders/agent/:agentId/reminder/:reminderId
-// Body: UpdateReminderRequest
-router.put('/agent/:agentId/reminder/:reminderId', remindersController.updateReminder);
-
-// Alternative route for updating reminder (for backward compatibility)
-// PUT /api/reminders/:reminderId
-// Headers: x-agent-id (required)
-router.put('/:reminderId', remindersController.updateReminder);
-
-// Delete a reminder
-// DELETE /api/reminders/agent/:agentId/reminder/:reminderId
-router.delete('/agent/:agentId/reminder/:reminderId', remindersController.deleteReminder);
-
-// Alternative route for deleting reminder (for backward compatibility)
-// DELETE /api/reminders/:reminderId
-// Headers: x-agent-id (required)
-router.delete('/:reminderId', remindersController.deleteReminder);
-
-// Complete a reminder
-// POST /api/reminders/agent/:agentId/reminder/:reminderId/complete
-// Body: { notes?: string }
-router.post('/agent/:agentId/reminder/:reminderId/complete', remindersController.completeReminder);
-
-// Alternative route for completing reminder (for backward compatibility)
-// POST /api/reminders/:reminderId/complete
-// Headers: x-agent-id (required)
-router.post('/:reminderId/complete', remindersController.completeReminder);
-
-// =============================================
-// SPECIALIZED REMINDER ROUTES
-// =============================================
-
-// Get today's reminders for an agent
-// GET /api/reminders/agent/:agentId/today
-router.get('/agent/:agentId/today', remindersController.getTodayReminders);
-
-// Get reminders by type
-// GET /api/reminders/agent/:agentId/type/:reminderType
-router.get('/agent/:agentId/type/:reminderType', remindersController.getRemindersByType);
-
-// Get reminders by status
-// GET /api/reminders/agent/:agentId/status/:status
-router.get('/agent/:agentId/status/:status', remindersController.getRemindersByStatus);
-
-// Get birthday reminders
-// GET /api/reminders/agent/:agentId/birthdays
-router.get('/agent/:agentId/birthdays', remindersController.getBirthdayReminders);
-
-// Get policy expiry reminders
-// GET /api/reminders/agent/:agentId/policy-expiry
-// Query params: daysAhead? (default: 30)
-router.get('/agent/:agentId/policy-expiry', remindersController.getPolicyExpiryReminders);
-
-// =============================================
-// REMINDER STATISTICS ROUTES
-// =============================================
-
-// Get reminder statistics for an agent
-// GET /api/reminders/agent/:agentId/statistics
-router.get('/agent/:agentId/statistics', remindersController.getReminderStatistics);
-
-// =============================================
-// REMINDER SETTINGS ROUTES
-// =============================================
-
-// Get reminder settings for an agent
-// GET /api/reminders/agent/:agentId/settings
-router.get('/agent/:agentId/settings', remindersController.getReminderSettings);
-
-// Update reminder settings for an agent
-// PUT /api/reminders/agent/:agentId/settings
-// Body: ReminderSettings
-router.put('/agent/:agentId/settings', remindersController.updateReminderSettings);
-
-// =============================================
-// UTILITY ROUTES
+// UTILITY ROUTES (Must come first to avoid conflicts)
 // =============================================
 
 // Validate phone number
@@ -118,8 +19,7 @@ router.put('/agent/:agentId/settings', remindersController.updateReminderSetting
 router.post('/validate-phone', remindersController.validatePhoneNumber);
 
 // =============================================
-// BACKWARD COMPATIBILITY ROUTES
-// These routes use headers for agent ID instead of URL params
+// SPECIFIC ROUTES (Must come before parameterized routes)
 // =============================================
 
 // Get today's reminders (backward compatibility)
@@ -151,5 +51,114 @@ router.get('/birthdays', remindersController.getBirthdayReminders);
 // GET /api/reminders/policy-expiry
 // Headers: x-agent-id (required)
 router.get('/policy-expiry', remindersController.getPolicyExpiryReminders);
+
+// Get reminders by type (backward compatibility)
+// GET /api/reminders/type/:reminderType
+// Headers: x-agent-id (required)
+router.get('/type/:reminderType', remindersController.getRemindersByType);
+
+// Get reminders by status (backward compatibility)
+// GET /api/reminders/status/:status
+// Headers: x-agent-id (required)
+router.get('/status/:status', remindersController.getRemindersByStatus);
+
+// =============================================
+// AGENT-SPECIFIC ROUTES (Frontend expects these patterns)
+// =============================================
+
+// Get reminder statistics for an agent
+// GET /api/reminders/{agentId}/statistics
+router.get('/:agentId/statistics', remindersController.getReminderStatistics);
+
+// Get reminder settings for an agent
+// GET /api/reminders/{agentId}/settings
+router.get('/:agentId/settings', remindersController.getReminderSettings);
+
+// Update reminder settings for an agent
+// PUT /api/reminders/{agentId}/settings
+// Body: ReminderSettings
+router.put('/:agentId/settings', remindersController.updateReminderSettings);
+
+// Get today's reminders for an agent
+// GET /api/reminders/{agentId}/today
+router.get('/:agentId/today', remindersController.getTodayReminders);
+
+// Get birthday reminders
+// GET /api/reminders/{agentId}/birthdays
+router.get('/:agentId/birthdays', remindersController.getBirthdayReminders);
+
+// Get policy expiry reminders
+// GET /api/reminders/{agentId}/policy-expiry
+// Query params: daysAhead? (default: 30)
+router.get('/:agentId/policy-expiry', remindersController.getPolicyExpiryReminders);
+
+// Get reminders by type
+// GET /api/reminders/{agentId}/type/{reminderType}
+router.get('/:agentId/type/:reminderType', remindersController.getRemindersByType);
+
+// Get reminders by status
+// GET /api/reminders/{agentId}/status/{status}
+router.get('/:agentId/status/:status', remindersController.getRemindersByStatus);
+
+// Complete a reminder
+// POST /api/reminders/{agentId}/{reminderId}/complete
+// Body: { notes?: string }
+router.post('/:agentId/:reminderId/complete', remindersController.completeReminder);
+
+// =============================================
+// MAIN CRUD ROUTES (These must come after specific routes)
+// =============================================
+
+// Create a new reminder
+// POST /api/reminders/{agentId}
+// Body: CreateReminderRequest
+router.post('/:agentId', remindersController.createReminder);
+
+// Get all reminders with pagination and filters
+// GET /api/reminders/{agentId}
+// Query params: ReminderType?, Status?, Priority?, StartDate?, EndDate?, ClientId?, PageSize?, PageNumber?
+router.get('/:agentId', remindersController.getAllReminders);
+
+// Get reminder by ID
+// GET /api/reminders/{agentId}/{reminderId}
+router.get('/:agentId/:reminderId', remindersController.getReminderById);
+
+// Update a reminder
+// PUT /api/reminders/{agentId}/{reminderId}
+// Body: UpdateReminderRequest
+router.put('/:agentId/:reminderId', remindersController.updateReminder);
+
+// Delete a reminder
+// DELETE /api/reminders/{agentId}/{reminderId}
+router.delete('/:agentId/:reminderId', remindersController.deleteReminder);
+
+// =============================================
+// LEGACY ROUTES (Using headers for backward compatibility)
+// =============================================
+
+// Create reminder (legacy)
+// POST /api/reminders
+// Headers: x-agent-id (required)
+router.post('/', remindersController.createReminder);
+
+// Get reminder by ID (legacy)
+// GET /api/reminders/{reminderId}
+// Headers: x-agent-id (required)
+router.get('/:reminderId', remindersController.getReminderById);
+
+// Update reminder (legacy)
+// PUT /api/reminders/{reminderId}
+// Headers: x-agent-id (required)
+router.put('/:reminderId', remindersController.updateReminder);
+
+// Delete reminder (legacy)
+// DELETE /api/reminders/{reminderId}
+// Headers: x-agent-id (required)
+router.delete('/:reminderId', remindersController.deleteReminder);
+
+// Complete reminder (legacy)
+// POST /api/reminders/{reminderId}/complete
+// Headers: x-agent-id (required)
+router.post('/:reminderId/complete', remindersController.completeReminder);
 
 export default router;

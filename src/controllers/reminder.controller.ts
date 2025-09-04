@@ -1,20 +1,9 @@
-// =============================================
-// UPDATED REMINDERS CONTROLLER - reminders.controller.ts
-// Fixed to match frontend API expectations
-// =============================================
-
 import { Request, Response } from 'express';
-import { ReminderService, ReminderStatistics } from '../services/reminder.service';
-import {
-    Reminder,
-    ReminderSettings,
-    CreateReminderRequest,
-    UpdateReminderRequest,
-    ReminderFilters,
-    PaginatedReminderResponse,
-    BirthdayReminder,
-    PolicyExpiryReminder,
-    PhoneValidationResult
+import { ReminderService } from '../services/reminder.service';
+import { 
+    CreateReminderRequest, 
+    UpdateReminderRequest, 
+    ReminderFilters 
 } from '../interfaces/reminders';
 
 export class RemindersController {
@@ -24,692 +13,496 @@ export class RemindersController {
         this.reminderService = new ReminderService();
     }
 
-    /** Create a new reminder - FIXED response format */
+    /** Extract agentId from params - frontend always uses URL params */
+    private extractAgentId(req: Request): string {
+        return req.params.agentId;
+    }
+
+    /** Create a new reminder */
     public createReminder = async (req: Request, res: Response): Promise<void> => {
+        console.log('🎯 CONTROLLER: createReminder - Starting...');
+        console.log('🎯 Request params:', req.params);
+        console.log('🎯 Request headers:', req.headers);
+        console.log('🎯 Request body:', JSON.stringify(req.body, null, 2));
+        
         try {
-            console.log('📝 Controller: Create reminder request received:', req.body);
-            
-            const agentId = req.headers['x-agent-id'] as string;
+            const agentId = this.extractAgentId(req);
+            console.log('🎯 Extracted agentId:', agentId);
             
             if (!agentId) {
+                console.error('❌ No agentId found in params or headers');
                 res.status(400).json({ 
-                    success: false, 
-                    message: 'Agent ID is required in headers' 
+                    error: 'Agent ID is required',
+                    message: 'Provide agentId in URL path or x-agent-id header' 
                 });
                 return;
             }
 
             const reminderData: CreateReminderRequest = req.body;
-            
-            // Validate required fields
-            if (!reminderData.Title || !reminderData.ReminderType || !reminderData.ReminderDate) {
-                res.status(400).json({
-                    success: false,
-                    message: 'Title, ReminderType, and ReminderDate are required'
-                });
-                return;
-            }
-
-            console.log('📝 Controller: Creating reminder with agentId:', agentId);
+            console.log('🎯 Calling service with agentId:', agentId);
             
             const result = await this.reminderService.createReminder(agentId, reminderData);
+            console.log('✅ CONTROLLER: createReminder - Success:', result);
             
-            console.log('✅ Controller: Reminder created successfully:', result);
-            
-            // FIXED: Return the format expected by frontend
-            res.status(201).json({
-                success: true,
-                message: 'Reminder created successfully',
-                data: result // Frontend expects { ReminderId: string }
-            });
-
+            res.status(201).json(result);
         } catch (error: unknown) {
-            console.error('❌ Controller: Error creating reminder:', error);
+            console.error('❌ CONTROLLER: createReminder - Error:', error);
             const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-            
-            res.status(500).json({
-                success: false,
-                message: 'Failed to create reminder',
-                error: errorMessage
+            res.status(500).json({ 
+                error: 'Failed to create reminder', 
+                message: errorMessage 
             });
         }
     };
 
-    /** Get all reminders with filters and pagination - FIXED response format */
+    /** Get all reminders with filters and pagination */
     public getAllReminders = async (req: Request, res: Response): Promise<void> => {
+        console.log('🔍 CONTROLLER: getAllReminders - Starting...');
+        console.log('🔍 Request params:', req.params);
+        console.log('🔍 Request query:', req.query);
+        
         try {
-            console.log('🌟 Controller: getAllReminders - Starting...');
-            console.log('🌟 Full URL:', req.originalUrl);
-            console.log('🌟 Method:', req.method);
-            console.log('🌟 Params:', req.params);
-            console.log('🌟 Query:', req.query);
-            
-            // Get agentId from URL params or headers - prioritize URL params for frontend compatibility
-            const agentId = req.params.agentId || req.headers['x-agent-id'] as string;
+            const agentId = this.extractAgentId(req);
+            console.log('🔍 Extracted agentId:', agentId);
             
             if (!agentId) {
-                console.log('❌ Controller: Missing agentId');
-                res.status(400).json({
-                    success: false,
-                    message: 'Agent ID is required (either in URL or x-agent-id header)'
+                console.error('❌ No agentId found in params or headers');
+                res.status(400).json({ 
+                    error: 'Agent ID is required',
+                    message: 'Provide agentId in URL path or x-agent-id header' 
                 });
                 return;
             }
 
-            console.log('📋 Controller: AgentId:', agentId);
-            console.log('📋 Controller: Query params:', req.query);
-
-            // Map frontend query parameters to service filters with proper type validation
+            // Parse query parameters for filters
             const filters: ReminderFilters = {
-                ReminderType: this.validateReminderType(req.query.reminderType as string || req.query.ReminderType as string),
-                Status: this.validateStatus(req.query.status as string || req.query.Status as string),
-                Priority: this.validatePriority(req.query.priority as string || req.query.Priority as string),
-                StartDate: req.query.startDate as string || req.query.StartDate as string,
-                EndDate: req.query.endDate as string || req.query.EndDate as string,
-                ClientId: req.query.clientId as string || req.query.ClientId as string,
-                PageSize: parseInt(req.query.PageSize as string || req.query.pageSize as string || '20'),
-                PageNumber: parseInt(req.query.PageNumber as string || req.query.pageNumber as string || '1')
+                ReminderType: req.query.ReminderType as any,
+                Status: req.query.Status as any,
+                Priority: req.query.Priority as any,
+                StartDate: req.query.StartDate as string,
+                EndDate: req.query.EndDate as string,
+                ClientId: req.query.ClientId as string,
+                PageSize: req.query.PageSize ? parseInt(req.query.PageSize as string) : 20,
+                PageNumber: req.query.PageNumber ? parseInt(req.query.PageNumber as string) : 1
             };
-
-            // Remove undefined/null/empty values
-            Object.keys(filters).forEach(key => {
-                const value = filters[key as keyof ReminderFilters];
-                if (value === undefined || value === null || value === '' || (typeof value === 'number' && isNaN(value))) {
-                    delete filters[key as keyof ReminderFilters];
-                }
-            });
-
-            console.log('📋 Controller: Processed filters:', filters);
-
-            const result = await this.reminderService.getAllReminders(agentId, filters);
             
-            console.log('✅ Controller: getAllReminders success:', {
-                totalReminders: result.reminders.length,
-                totalRecords: result.totalRecords,
-                currentPage: result.currentPage,
-                totalPages: result.totalPages
+            console.log('🔍 Parsed filters:', filters);
+            
+            const result = await this.reminderService.getAllReminders(agentId, filters);
+            console.log('✅ CONTROLLER: getAllReminders - Success:', {
+                totalReminders: result.reminders?.length || 0,
+                totalRecords: result.totalRecords
             });
-
-            // FIXED: Frontend expects the data directly, not wrapped in { success, data }
+            
             res.status(200).json(result);
-
-        } catch (error) {
-            console.error('❌ Controller: Error getting all reminders:', error);
-            res.status(500).json({
-                success: false,
-                message: 'Failed to retrieve reminders',
-                error: error instanceof Error ? error.message : 'Unknown error'
+        } catch (error: unknown) {
+            console.error('❌ CONTROLLER: getAllReminders - Error:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            res.status(500).json({ 
+                error: 'Failed to fetch reminders', 
+                message: errorMessage 
             });
         }
     };
 
-    /** Get reminder by ID - FIXED response format */
+    /** Get reminder by ID */
     public getReminderById = async (req: Request, res: Response): Promise<void> => {
+        console.log('🔍 CONTROLLER: getReminderById - Starting...');
+        console.log('🔍 Request params:', req.params);
+        
         try {
-            console.log('🔍 Controller: getReminderById - Starting...');
+            const agentId = this.extractAgentId(req);
+            const reminderId = req.params.reminderId;
             
-            const agentId = req.params.agentId || req.headers['x-agent-id'] as string;
-            const reminderId = req.params.reminderId || req.params.id;
-
+            console.log('🔍 AgentId:', agentId);
+            console.log('🔍 ReminderId:', reminderId);
+            
             if (!agentId || !reminderId) {
-                console.log('❌ Controller: Missing required parameters');
-                res.status(400).json({
-                    success: false,
-                    message: 'Agent ID and Reminder ID are required'
+                console.error('❌ Missing required parameters');
+                res.status(400).json({ 
+                    error: 'Agent ID and Reminder ID are required' 
                 });
                 return;
             }
-
-            console.log('🔍 Controller: AgentId:', agentId);
-            console.log('🔍 Controller: ReminderId:', reminderId);
 
             const reminder = await this.reminderService.getReminderById(reminderId, agentId);
-
+            
             if (!reminder) {
-                console.log('❌ Controller: Reminder not found');
-                res.status(404).json({
-                    success: false,
-                    message: 'Reminder not found'
+                console.log('ℹ️ Reminder not found');
+                res.status(404).json({ 
+                    error: 'Reminder not found' 
                 });
                 return;
             }
-
-            console.log('✅ Controller: getReminderById success:', reminder.Title);
-
-            // FIXED: Frontend expects the reminder directly
+            
+            console.log('✅ CONTROLLER: getReminderById - Success:', reminder.Title);
             res.status(200).json(reminder);
-
-        } catch (error) {
-            console.error('❌ Controller: Error getting reminder:', error);
-            res.status(500).json({
-                success: false,
-                message: 'Failed to retrieve reminder',
-                error: error instanceof Error ? error.message : 'Unknown error'
+        } catch (error: unknown) {
+            console.error('❌ CONTROLLER: getReminderById - Error:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            res.status(500).json({ 
+                error: 'Failed to fetch reminder', 
+                message: errorMessage 
             });
         }
     };
 
-    /** Update a reminder - FIXED response format */
+    /** Update a reminder */
     public updateReminder = async (req: Request, res: Response): Promise<void> => {
+        console.log('✏️ CONTROLLER: updateReminder - Starting...');
+        console.log('✏️ Request params:', req.params);
+        console.log('✏️ Request body:', JSON.stringify(req.body, null, 2));
+        
         try {
-            const agentId = req.params.agentId || req.headers['x-agent-id'] as string;
-            const reminderId = req.params.reminderId || req.params.id;
+            const agentId = this.extractAgentId(req);
+            const reminderId = req.params.reminderId;
             
-            if (!agentId) {
+            if (!agentId || !reminderId) {
+                console.error('❌ Missing required parameters');
                 res.status(400).json({ 
-                    success: false, 
-                    message: 'Agent ID is required' 
-                });
-                return;
-            }
-
-            if (!reminderId) {
-                res.status(400).json({
-                    success: false,
-                    message: 'Reminder ID is required'
+                    error: 'Agent ID and Reminder ID are required' 
                 });
                 return;
             }
 
             const updateData: UpdateReminderRequest = req.body;
+            const reminder = await this.reminderService.updateReminder(reminderId, agentId, updateData);
+            console.log('✅ CONTROLLER: updateReminder - Success:', reminder.Title);
             
-            const result = await this.reminderService.updateReminder(reminderId, agentId, updateData);
-            
-            if (result.RowsAffected === 0) {
-                res.status(404).json({
-                    success: false,
-                    message: 'Reminder not found or no changes made'
-                });
-                return;
-            }
-
-            // FIXED: Frontend expects the updated reminder, so fetch and return it
-            const updatedReminder = await this.reminderService.getReminderById(reminderId, agentId);
-            
-            res.status(200).json(updatedReminder);
-
+            res.status(200).json(reminder);
         } catch (error: unknown) {
-            console.error('❌ Controller: Error updating reminder:', error);
+            console.error('❌ CONTROLLER: updateReminder - Error:', error);
             const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-            
-            res.status(500).json({
-                success: false,
-                message: 'Failed to update reminder',
-                error: errorMessage
+            res.status(500).json({ 
+                error: 'Failed to update reminder', 
+                message: errorMessage 
             });
         }
     };
 
     /** Delete a reminder */
     public deleteReminder = async (req: Request, res: Response): Promise<void> => {
+        console.log('🗑️ CONTROLLER: deleteReminder - Starting...');
+        
         try {
-            const agentId = req.params.agentId || req.headers['x-agent-id'] as string;
-            const reminderId = req.params.reminderId || req.params.id;
+            const agentId = this.extractAgentId(req);
+            const reminderId = req.params.reminderId;
             
-            if (!agentId) {
+            if (!agentId || !reminderId) {
+                console.error('❌ Missing required parameters');
                 res.status(400).json({ 
-                    success: false, 
-                    message: 'Agent ID is required' 
-                });
-                return;
-            }
-
-            if (!reminderId) {
-                res.status(400).json({
-                    success: false,
-                    message: 'Reminder ID is required'
+                    error: 'Agent ID and Reminder ID are required' 
                 });
                 return;
             }
 
             const result = await this.reminderService.deleteReminder(reminderId, agentId);
+            console.log('✅ CONTROLLER: deleteReminder - Success:', result);
             
-            if (result.RowsAffected === 0) {
-                res.status(404).json({
-                    success: false,
-                    message: 'Reminder not found'
-                });
-                return;
-            }
-
-            res.status(200).json({
-                success: true,
-                message: 'Reminder deleted successfully',
-                data: result
-            });
-
+            res.status(200).json(result);
         } catch (error: unknown) {
-            console.error('❌ Controller: Error deleting reminder:', error);
+            console.error('❌ CONTROLLER: deleteReminder - Error:', error);
             const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-            
-            res.status(500).json({
-                success: false,
-                message: 'Failed to delete reminder',
-                error: errorMessage
+            res.status(500).json({ 
+                error: 'Failed to delete reminder', 
+                message: errorMessage 
             });
         }
     };
 
     /** Complete a reminder */
     public completeReminder = async (req: Request, res: Response): Promise<void> => {
+        console.log('✅ CONTROLLER: completeReminder - Starting...');
+        
         try {
-            const agentId = req.params.agentId || req.headers['x-agent-id'] as string;
-            const reminderId = req.params.reminderId || req.params.id;
+            const agentId = this.extractAgentId(req);
+            const reminderId = req.params.reminderId;
             const { notes } = req.body;
             
-            if (!agentId) {
+            if (!agentId || !reminderId) {
+                console.error('❌ Missing required parameters');
                 res.status(400).json({ 
-                    success: false, 
-                    message: 'Agent ID is required' 
-                });
-                return;
-            }
-
-            if (!reminderId) {
-                res.status(400).json({
-                    success: false,
-                    message: 'Reminder ID is required'
+                    error: 'Agent ID and Reminder ID are required' 
                 });
                 return;
             }
 
             const result = await this.reminderService.completeReminder(reminderId, agentId, notes);
+            console.log('✅ CONTROLLER: completeReminder - Success:', result);
             
-            if (result.RowsAffected === 0) {
-                res.status(404).json({
-                    success: false,
-                    message: 'Reminder not found'
-                });
-                return;
-            }
-
-            res.status(200).json({
-                success: true,
-                message: 'Reminder completed successfully',
-                data: result
-            });
-
+            res.status(200).json(result);
         } catch (error: unknown) {
-            console.error('❌ Controller: Error completing reminder:', error);
+            console.error('❌ CONTROLLER: completeReminder - Error:', error);
             const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-            
-            res.status(500).json({
-                success: false,
-                message: 'Failed to complete reminder',
-                error: errorMessage
+            res.status(500).json({ 
+                error: 'Failed to complete reminder', 
+                message: errorMessage 
             });
         }
     };
 
-    /** Get today's reminders - FIXED response format */
+    /** Get today's reminders */
     public getTodayReminders = async (req: Request, res: Response): Promise<void> => {
+        console.log('📅 CONTROLLER: getTodayReminders - Starting...');
+        
         try {
-            const agentId = req.params.agentId || req.headers['x-agent-id'] as string;
+            const agentId = this.extractAgentId(req);
             
             if (!agentId) {
-                res.status(400).json({
-                    success: false,
-                    message: 'Agent ID is required'
+                console.error('❌ No agentId found');
+                res.status(400).json({ 
+                    error: 'Agent ID is required' 
                 });
                 return;
             }
 
-            console.log(`🔍 Getting today's reminders for agent: ${agentId}`);
-            const reminders: Reminder[] = await this.reminderService.getTodayReminders(agentId);
+            const reminders = await this.reminderService.getTodayReminders(agentId);
+            console.log('✅ CONTROLLER: getTodayReminders - Success:', reminders.length);
             
-            // FIXED: Return reminders directly as array
             res.status(200).json(reminders);
-            
         } catch (error: unknown) {
-            console.error('❌ Controller: Error getting today\'s reminders:', error);
+            console.error('❌ CONTROLLER: getTodayReminders - Error:', error);
             const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-            
-            res.status(500).json({
-                success: false,
-                message: 'Failed to retrieve today\'s reminders',
-                error: errorMessage
+            res.status(500).json({ 
+                error: 'Failed to fetch today\'s reminders', 
+                message: errorMessage 
             });
         }
     };
 
-    /** Get reminder settings - FIXED response format */
-    public getReminderSettings = async (req: Request, res: Response): Promise<void> => {
+    /** Get reminders by type */
+    public getRemindersByType = async (req: Request, res: Response): Promise<void> => {
+        console.log('🏷️ CONTROLLER: getRemindersByType - Starting...');
+        
         try {
-            const agentId = req.params.agentId || req.headers['x-agent-id'] as string;
+            const agentId = this.extractAgentId(req);
+            const reminderType = req.params.reminderType;
             
-            if (!agentId) {
+            if (!agentId || !reminderType) {
+                console.error('❌ Missing required parameters');
                 res.status(400).json({ 
-                    success: false, 
-                    message: 'Agent ID is required' 
+                    error: 'Agent ID and Reminder Type are required' 
                 });
                 return;
             }
 
-            const settings: ReminderSettings[] = await this.reminderService.getReminderSettings(agentId);
+            const reminders = await this.reminderService.getRemindersByType(agentId, reminderType);
+            console.log('✅ CONTROLLER: getRemindersByType - Success:', reminders.length);
             
-            // FIXED: Return settings directly as array
-            res.status(200).json(settings);
-
+            res.status(200).json(reminders);
         } catch (error: unknown) {
-            console.error('❌ Controller: Error getting reminder settings:', error);
+            console.error('❌ CONTROLLER: getRemindersByType - Error:', error);
             const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            res.status(500).json({ 
+                error: 'Failed to fetch reminders by type', 
+                message: errorMessage 
+            });
+        }
+    };
+
+    /** Get reminders by status */
+    public getRemindersByStatus = async (req: Request, res: Response): Promise<void> => {
+        console.log('📊 CONTROLLER: getRemindersByStatus - Starting...');
+        
+        try {
+            const agentId = this.extractAgentId(req);
+            const status = req.params.status;
             
-            res.status(500).json({
-                success: false,
-                message: 'Failed to retrieve reminder settings',
-                error: errorMessage
+            if (!agentId || !status) {
+                console.error('❌ Missing required parameters');
+                res.status(400).json({ 
+                    error: 'Agent ID and Status are required' 
+                });
+                return;
+            }
+
+            const reminders = await this.reminderService.getRemindersByStatus(agentId, status);
+            console.log('✅ CONTROLLER: getRemindersByStatus - Success:', reminders.length);
+            
+            res.status(200).json(reminders);
+        } catch (error: unknown) {
+            console.error('❌ CONTROLLER: getRemindersByStatus - Error:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            res.status(500).json({ 
+                error: 'Failed to fetch reminders by status', 
+                message: errorMessage 
+            });
+        }
+    };
+
+    /** Get birthday reminders */
+    public getBirthdayReminders = async (req: Request, res: Response): Promise<void> => {
+        console.log('🎂 CONTROLLER: getBirthdayReminders - Starting...');
+        
+        try {
+            const agentId = this.extractAgentId(req);
+            
+            if (!agentId) {
+                console.error('❌ No agentId found');
+                res.status(400).json({ 
+                    error: 'Agent ID is required' 
+                });
+                return;
+            }
+
+            const reminders = await this.reminderService.getBirthdayReminders(agentId);
+            console.log('✅ CONTROLLER: getBirthdayReminders - Success:', reminders.length);
+            
+            res.status(200).json(reminders);
+        } catch (error: unknown) {
+            console.error('❌ CONTROLLER: getBirthdayReminders - Error:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            res.status(500).json({ 
+                error: 'Failed to fetch birthday reminders', 
+                message: errorMessage 
+            });
+        }
+    };
+
+    /** Get policy expiry reminders */
+    public getPolicyExpiryReminders = async (req: Request, res: Response): Promise<void> => {
+        console.log('📋 CONTROLLER: getPolicyExpiryReminders - Starting...');
+        
+        try {
+            const agentId = this.extractAgentId(req);
+            const daysAhead = req.query.daysAhead ? parseInt(req.query.daysAhead as string) : 30;
+            
+            if (!agentId) {
+                console.error('❌ No agentId found');
+                res.status(400).json({ 
+                    error: 'Agent ID is required' 
+                });
+                return;
+            }
+
+            const reminders = await this.reminderService.getPolicyExpiryReminders(agentId, daysAhead);
+            console.log('✅ CONTROLLER: getPolicyExpiryReminders - Success:', reminders.length);
+            
+            res.status(200).json(reminders);
+        } catch (error: unknown) {
+            console.error('❌ CONTROLLER: getPolicyExpiryReminders - Error:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            res.status(500).json({ 
+                error: 'Failed to fetch policy expiry reminders', 
+                message: errorMessage 
+            });
+        }
+    };
+
+    /** Get reminder statistics */
+    public getReminderStatistics = async (req: Request, res: Response): Promise<void> => {
+        console.log('📊 CONTROLLER: getReminderStatistics - Starting...');
+        
+        try {
+            const agentId = this.extractAgentId(req);
+            
+            if (!agentId) {
+                console.error('❌ No agentId found');
+                res.status(400).json({ 
+                    error: 'Agent ID is required' 
+                });
+                return;
+            }
+
+            const statistics = await this.reminderService.getReminderStatistics(agentId);
+            console.log('✅ CONTROLLER: getReminderStatistics - Success:', statistics);
+            
+            res.status(200).json(statistics);
+        } catch (error: unknown) {
+            console.error('❌ CONTROLLER: getReminderStatistics - Error:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            res.status(500).json({ 
+                error: 'Failed to fetch reminder statistics', 
+                message: errorMessage 
+            });
+        }
+    };
+
+    /** Get reminder settings */
+    public getReminderSettings = async (req: Request, res: Response): Promise<void> => {
+        console.log('⚙️ CONTROLLER: getReminderSettings - Starting...');
+        
+        try {
+            const agentId = this.extractAgentId(req);
+            
+            if (!agentId) {
+                console.error('❌ No agentId found');
+                res.status(400).json({ 
+                    error: 'Agent ID is required' 
+                });
+                return;
+            }
+
+            const settings = await this.reminderService.getReminderSettings(agentId);
+            console.log('✅ CONTROLLER: getReminderSettings - Success:', settings.length);
+            
+            res.status(200).json(settings);
+        } catch (error: unknown) {
+            console.error('❌ CONTROLLER: getReminderSettings - Error:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            res.status(500).json({ 
+                error: 'Failed to fetch reminder settings', 
+                message: errorMessage 
             });
         }
     };
 
     /** Update reminder settings */
     public updateReminderSettings = async (req: Request, res: Response): Promise<void> => {
+        console.log('⚙️ CONTROLLER: updateReminderSettings - Starting...');
+        
         try {
-            const agentId = req.params.agentId || req.headers['x-agent-id'] as string;
+            const agentId = this.extractAgentId(req);
             
             if (!agentId) {
+                console.error('❌ No agentId found');
                 res.status(400).json({ 
-                    success: false, 
-                    message: 'Agent ID is required' 
+                    error: 'Agent ID is required' 
                 });
                 return;
             }
 
-            const settings: ReminderSettings = req.body;
-            
-            // Validate required fields
-            if (!settings.ReminderType || typeof settings.IsEnabled !== 'boolean') {
-                res.status(400).json({
-                    success: false,
-                    message: 'ReminderType and IsEnabled are required'
-                });
-                return;
-            }
-
+            const settings = req.body;
             await this.reminderService.updateReminderSettings(agentId, settings);
+            console.log('✅ CONTROLLER: updateReminderSettings - Success');
             
-            res.status(200).json({
-                success: true,
-                message: 'Reminder settings updated successfully'
-            });
-
+            res.status(200).json({ message: 'Settings updated successfully' });
         } catch (error: unknown) {
-            console.error('❌ Controller: Error updating reminder settings:', error);
+            console.error('❌ CONTROLLER: updateReminderSettings - Error:', error);
             const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-            
-            res.status(500).json({
-                success: false,
-                message: 'Failed to update reminder settings',
-                error: errorMessage
-            });
-        }
-    };
-
-    /** Get reminder statistics - FIXED response format */
-    public getReminderStatistics = async (req: Request, res: Response): Promise<void> => {
-        try {
-            console.log('📊 Controller: getReminderStatistics - Starting...');
-            console.log('📊 URL:', req.originalUrl);
-            console.log('📊 Params:', req.params);
-            
-            const agentId = req.params.agentId || req.headers['x-agent-id'] as string;
-            
-            if (!agentId) {
-                res.status(400).json({ 
-                    success: false, 
-                    message: 'Agent ID is required'
-                });
-                return;
-            }
-
-            const statistics: ReminderStatistics = await this.reminderService.getReminderStatistics(agentId);
-            
-            // FIXED: Return statistics directly
-            res.status(200).json(statistics);
-
-        } catch (error: unknown) {
-            console.error('❌ Controller: Error getting reminder statistics:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-            
-            res.status(500).json({
-                success: false,
-                message: 'Failed to retrieve reminder statistics',
-                error: errorMessage
-            });
-        }
-    };
-
-    /** Get reminders by type - FIXED response format */
-    public getRemindersByType = async (req: Request, res: Response): Promise<void> => {
-        try {
-            const agentId = req.params.agentId || req.headers['x-agent-id'] as string;
-            const reminderType = req.params.reminderType;
-            
-            if (!agentId) {
-                res.status(400).json({ 
-                    success: false, 
-                    message: 'Agent ID is required' 
-                });
-                return;
-            }
-
-            if (!reminderType) {
-                res.status(400).json({
-                    success: false,
-                    message: 'Reminder type is required'
-                });
-                return;
-            }
-
-            // Validate reminder type
-            const validatedType = this.validateReminderType(reminderType);
-            if (!validatedType) {
-                res.status(400).json({
-                    success: false,
-                    message: 'Invalid reminder type'
-                });
-                return;
-            }
-
-            const reminders: Reminder[] = await this.reminderService.getRemindersByType(agentId, validatedType);
-            
-            // FIXED: Return reminders directly as array
-            res.status(200).json(reminders);
-
-        } catch (error: unknown) {
-            console.error('❌ Controller: Error getting reminders by type:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-            
-            res.status(500).json({
-                success: false,
-                message: 'Failed to retrieve reminders by type',
-                error: errorMessage
-            });
-        }
-    };
-
-    /** Get reminders by status - FIXED response format */
-    public getRemindersByStatus = async (req: Request, res: Response): Promise<void> => {
-        try {
-            const agentId = req.params.agentId || req.headers['x-agent-id'] as string;
-            const status = req.params.status;
-            
-            if (!agentId) {
-                res.status(400).json({ 
-                    success: false, 
-                    message: 'Agent ID is required' 
-                });
-                return;
-            }
-
-            if (!status) {
-                res.status(400).json({
-                    success: false,
-                    message: 'Status is required'
-                });
-                return;
-            }
-
-            // Validate status
-            const validatedStatus = this.validateStatus(status);
-            if (!validatedStatus) {
-                res.status(400).json({
-                    success: false,
-                    message: 'Invalid status'
-                });
-                return;
-            }
-
-            const reminders: Reminder[] = await this.reminderService.getRemindersByStatus(agentId, validatedStatus);
-            
-            // FIXED: Return reminders directly as array
-            res.status(200).json(reminders);
-
-        } catch (error: unknown) {
-            console.error('❌ Controller: Error getting reminders by status:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-            
-            res.status(500).json({
-                success: false,
-                message: 'Failed to retrieve reminders by status',
-                error: errorMessage
-            });
-        }
-    };
-
-    /** Get birthday reminders - FIXED response format */
-    public getBirthdayReminders = async (req: Request, res: Response): Promise<void> => {
-        try {
-            const agentId = req.params.agentId || req.headers['x-agent-id'] as string;
-            
-            if (!agentId) {
-                res.status(400).json({
-                    success: false,
-                    message: 'Agent ID is required'
-                });
-                return;
-            }
-
-            console.log(`🎂 Getting birthday reminders for agent: ${agentId}`);
-            const birthdayReminders: BirthdayReminder[] = await this.reminderService.getBirthdayReminders(agentId);
-            
-            // FIXED: Return birthday reminders directly as array
-            res.status(200).json(birthdayReminders);
-            
-        } catch (error: unknown) {
-            console.error('❌ Controller: Error getting birthday reminders:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-            
-            res.status(500).json({
-                success: false,
-                message: 'Failed to retrieve birthday reminders',
-                error: errorMessage
-            });
-        }
-    };
-
-    /** Get policy expiry reminders - FIXED response format */
-    public getPolicyExpiryReminders = async (req: Request, res: Response): Promise<void> => {
-        try {
-            const agentId = req.params.agentId || req.headers['x-agent-id'] as string;
-            const daysAhead = req.query.daysAhead ? parseInt(req.query.daysAhead as string) : 30;
-            
-            if (!agentId) {
-                res.status(400).json({
-                    success: false,
-                    message: 'Agent ID is required'
-                });
-                return;
-            }
-
-            // Validate daysAhead parameter
-            if (isNaN(daysAhead) || daysAhead < 1 || daysAhead > 365) {
-                res.status(400).json({
-                    success: false,
-                    message: 'daysAhead must be a valid number between 1 and 365'
-                });
-                return;
-            }
-
-            console.log(`📋 Getting policy expiry reminders for agent: ${agentId}, daysAhead: ${daysAhead}`);
-            const policyReminders: PolicyExpiryReminder[] = await this.reminderService.getPolicyExpiryReminders(agentId, daysAhead);
-            
-            // FIXED: Return policy reminders directly as array
-            res.status(200).json(policyReminders);
-            
-        } catch (error: unknown) {
-            console.error('❌ Controller: Error getting policy expiry reminders:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-            
-            res.status(500).json({
-                success: false,
-                message: 'Failed to retrieve policy expiry reminders',
-                error: errorMessage
+            res.status(500).json({ 
+                error: 'Failed to update reminder settings', 
+                message: errorMessage 
             });
         }
     };
 
     /** Validate phone number */
     public validatePhoneNumber = async (req: Request, res: Response): Promise<void> => {
+        console.log('📞 CONTROLLER: validatePhoneNumber - Starting...');
+        
         try {
             const { phoneNumber, countryCode } = req.body;
             
             if (!phoneNumber) {
-                res.status(400).json({
-                    success: false,
-                    message: 'Phone number is required'
+                console.error('❌ Phone number is required');
+                res.status(400).json({ 
+                    error: 'Phone number is required' 
                 });
                 return;
             }
 
-            const validationResult: PhoneValidationResult = await this.reminderService.validatePhoneNumber(
-                phoneNumber, 
-                countryCode || '+254'
-            );
+            const result = await this.reminderService.validatePhoneNumber(phoneNumber, countryCode);
+            console.log('✅ CONTROLLER: validatePhoneNumber - Success:', result);
             
-            res.status(200).json({
-                success: true,
-                message: 'Phone number validation completed',
-                data: validationResult
-            });
-
+            res.status(200).json(result);
         } catch (error: unknown) {
-            console.error('❌ Controller: Error validating phone number:', error);
+            console.error('❌ CONTROLLER: validatePhoneNumber - Error:', error);
             const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-            
-            res.status(500).json({
-                success: false,
-                message: 'Failed to validate phone number',
-                error: errorMessage
+            res.status(500).json({ 
+                error: 'Failed to validate phone number', 
+                message: errorMessage 
             });
         }
     };
-
-    // UPDATED: Validation helper methods with proper return types
-    private validateReminderType(type: string): 'Call' | 'Visit' | 'Policy Expiry' | 'Maturing Policy' | 'Birthday' | 'Holiday' | 'Custom' | 'Appointment' | undefined {
-        if (!type) return undefined;
-        const validTypes = [
-            'Call', 
-            'Visit', 
-            'Policy Expiry', 
-            'Maturing Policy', 
-            'Birthday', 
-            'Holiday', 
-            'Custom', 
-            'Appointment'
-        ] as const;
-        return validTypes.includes(type as any) ? type as any : undefined;
-    }
-
-    private validateStatus(status: string): 'Active' | 'Completed' | 'Cancelled' | undefined {
-        if (!status) return undefined;
-        const validStatuses = ['Active', 'Completed', 'Cancelled'] as const;
-        return validStatuses.includes(status as any) ? status as any : undefined;
-    }
-
-    private validatePriority(priority: string): 'High' | 'Medium' | 'Low' | undefined {
-        if (!priority) return undefined;
-        const validPriorities = ['High', 'Medium', 'Low'] as const;
-        return validPriorities.includes(priority as any) ? priority as any : undefined;
-    }
 }

@@ -28,8 +28,8 @@ export class ReminderService {
         return uuidValidate(uuid);
     }
 
-    /** Create a new reminder - FIXED to handle all reminder types */
-    public async createReminder(agentId: string, reminderData: CreateReminderRequest): Promise<{ ReminderId: string }> {
+    /** Create a new reminder - FIXED to return complete reminder object */
+    public async createReminder(agentId: string, reminderData: CreateReminderRequest): Promise<Reminder> {
         console.log('📝 Backend: Creating reminder with raw data:', reminderData);
         
         try {
@@ -86,9 +86,18 @@ export class ReminderService {
                 console.log('📝 Backend: Executing query with validated time:', validatedTime);
                 
                 const result = await client.query(query, values);
+                const reminderId = result.rows[0].reminder_id;
                 
-                console.log('✅ Backend: Reminder created successfully');
-                return { ReminderId: result.rows[0].reminder_id };
+                console.log('✅ Backend: Reminder created with ID:', reminderId);
+                
+                // FIXED: Fetch and return the complete reminder object
+                const createdReminder = await this.getReminderById(reminderId, agentId);
+                if (!createdReminder) {
+                    throw new Error('Failed to retrieve created reminder');
+                }
+                
+                console.log('✅ Backend: Returning complete reminder object');
+                return createdReminder;
                 
             } finally {
                 client.release();
@@ -100,6 +109,67 @@ export class ReminderService {
             
             const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
             throw new Error(`Failed to create reminder: ${errorMessage}`);
+        }
+    }
+
+    /** Update a reminder - FIXED to return complete reminder object */
+    public async updateReminder(reminderId: string, agentId: string, updateData: UpdateReminderRequest): Promise<Reminder> {
+        // Validate inputs
+        if (!reminderId || !this.isValidUUID(reminderId)) {
+            throw new Error('Valid Reminder ID is required');
+        }
+        if (!agentId || !this.isValidUUID(agentId)) {
+            throw new Error('Valid Agent ID is required');
+        }
+
+        const pool = await poolPromise as Pool;
+        const client = await pool.connect();
+        
+        try {
+            let validatedTime: string | null = null;
+            if (updateData.ReminderTime) {
+                validatedTime = this.validateAndFormatPostgreSQLTime(updateData.ReminderTime);
+            }
+            
+            const query = `
+                SELECT sp_update_reminder(
+                    $1::uuid, $2::uuid, $3::varchar(200), $4::text, $5::date,
+                    $6::time, $7::varchar(10), $8::varchar(20), $9::boolean,
+                    $10::boolean, $11::boolean, $12::varchar(20), $13::text,
+                    $14::boolean, $15::text
+                ) as rows_affected
+            `;
+            
+            const values = [
+                reminderId,
+                agentId,
+                updateData.Title || null,
+                updateData.Description || null,
+                updateData.ReminderDate || null,
+                validatedTime,
+                updateData.Priority || null,
+                updateData.Status || null,
+                updateData.EnableSMS || null,
+                updateData.EnableWhatsApp || null,
+                updateData.EnablePushNotification || null,
+                updateData.AdvanceNotice || null,
+                updateData.CustomMessage || null,
+                updateData.AutoSend || null,
+                updateData.Notes || null
+            ];
+            
+            const result = await client.query(query, values);
+            console.log('✅ Backend: Update affected rows:', result.rows[0].rows_affected);
+            
+            // FIXED: Fetch and return the complete updated reminder object
+            const updatedReminder = await this.getReminderById(reminderId, agentId);
+            if (!updatedReminder) {
+                throw new Error('Failed to retrieve updated reminder');
+            }
+            
+            return updatedReminder;
+        } finally {
+            client.release();
         }
     }
 
@@ -249,59 +319,6 @@ export class ReminderService {
         } catch (error) {
             console.error('❌ ReminderService.getReminderById - Error:', error);
             throw error;
-        } finally {
-            client.release();
-        }
-    }
-
-    /** Update a reminder */
-    public async updateReminder(reminderId: string, agentId: string, updateData: UpdateReminderRequest): Promise<{ RowsAffected: number }> {
-        // Validate inputs
-        if (!reminderId || !this.isValidUUID(reminderId)) {
-            throw new Error('Valid Reminder ID is required');
-        }
-        if (!agentId || !this.isValidUUID(agentId)) {
-            throw new Error('Valid Agent ID is required');
-        }
-
-        const pool = await poolPromise as Pool;
-        const client = await pool.connect();
-        
-        try {
-            let validatedTime: string | null = null;
-            if (updateData.ReminderTime) {
-                validatedTime = this.validateAndFormatPostgreSQLTime(updateData.ReminderTime);
-            }
-            
-            const query = `
-                SELECT sp_update_reminder(
-                    $1::uuid, $2::uuid, $3::varchar(200), $4::text, $5::date,
-                    $6::time, $7::varchar(10), $8::varchar(20), $9::boolean,
-                    $10::boolean, $11::boolean, $12::varchar(20), $13::text,
-                    $14::boolean, $15::text
-                ) as rows_affected
-            `;
-            
-            const values = [
-                reminderId,
-                agentId,
-                updateData.Title || null,
-                updateData.Description || null,
-                updateData.ReminderDate || null,
-                validatedTime,
-                updateData.Priority || null,
-                updateData.Status || null,
-                updateData.EnableSMS || null,
-                updateData.EnableWhatsApp || null,
-                updateData.EnablePushNotification || null,
-                updateData.AdvanceNotice || null,
-                updateData.CustomMessage || null,
-                updateData.AutoSend || null,
-                updateData.Notes || null
-            ];
-            
-            const result = await client.query(query, values);
-            return { RowsAffected: result.rows[0].rows_affected };
         } finally {
             client.release();
         }
