@@ -5,7 +5,7 @@ POST {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c
 Content-Type: application/json
 
 {
-  "clientId": "ba849305-c1d6-49b6-8494-6666d732e70a",
+  "clientId": "35e4b57f-ac30-4bdd-b0c8-0745b6237469",
   "title": "Policy Renewal Meeting",
   "description": "Discuss renewal options",
   "appointmentDate": "2025-08-10",

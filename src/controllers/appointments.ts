@@ -91,7 +91,7 @@ export class AppointmentController {
         };
     }
 
- /** Search clients for autocomplete */
+/** Search clients for autocomplete */
 public async searchClients(req: Request, res: Response) {
     console.log('🔍 SEARCH CLIENTS - Controller method started');
     
@@ -112,8 +112,16 @@ public async searchClients(req: Request, res: Response) {
         
         console.log('✅ SEARCH CLIENTS - Found clients:', clients.length);
 
-        // ✅ Return only the array to match Angular expectations
-        res.status(200).json(clients);
+        // ✅ Transform database response to match frontend expectations
+        const transformedClients = clients.map(client => ({
+            ClientId: client.clientId,
+            FullName: client.clientName,
+            PhoneNumber: client.phone || '',
+            Email: client.email || ''
+        }));
+
+        // Return the transformed array to match frontend interface
+        res.status(200).json(transformedClients);
 
     } catch (error: any) {
         console.error('❌ SEARCH CLIENTS - Error:', error);
